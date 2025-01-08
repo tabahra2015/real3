@@ -1,0 +1,103 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+#include "resistance.h"
+
+// void group_process(ResistanceGroup *group)
+// {
+//     pthread_t threads[group->group_size];
+//     printf("Group %d process started (PID: %d) with %d members, Type: %s.\n", group->group_id, getpid(), group->group_size, group->group_type == SOCIAL ? "Social" : "Military");
+
+//     // Ensure that there is at most one spy in the group
+//     int spy_index = rand() % group->group_size;
+//     for (int i = 0; i < group->group_size; i++)
+//     {
+//         group->members[i].member_type = (i == spy_index) ? SPY : NORMAL_MEMBER;
+//     }
+
+//     if (group->group_type == MILITARY)
+//     {
+//         float random_value = (float)rand() / RAND_MAX;
+//         if (random_value < group->spy_target_probability)
+//         {
+//             printf("Group %d (Military) has been targeted by the enemy.\n", group->group_id);
+//         }
+//         else
+//         {
+//             printf("Group %d (Military) is safe for now.\n", group->group_id);
+//         }
+//     }
+
+//     for (int i = 0; i < group->group_size; i++)
+//     {
+//         pthread_create(&group->members[i].thread_id, NULL, group_member_function, &group->members[i].member_id);
+//     }
+
+//     for (int i = 0; i < group->group_size; i++)
+//     {
+//         pthread_join(group->members[i].thread_id, NULL);
+//     }
+
+//     printf("Group %d process completed.\n", group->group_id);
+// }
+
+// void create_group()
+// {
+//     if (groups_created < MAX_GROUPS)
+//     {
+//         pid_t pid = fork();
+//         if (pid < 0)
+//         {
+//             perror("Fork failed");
+//             exit(EXIT_FAILURE);
+//         }
+//         else if (pid == 0)
+//         {
+//             int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
+//             ResistanceGroup group = {
+//                 .group_id = groups_created + 1,
+//                 .group_size = group_size,
+//                 .group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY,
+//                 .spy_target_probability = ((rand() % 2 == 0) ? SOCIAL : MILITARY) == MILITARY
+//                                               ? SPY_TARGET_PROBABILITY
+//                                               : 0.3
+//             };
+
+//             group_process(&group);
+//             exit(0);
+//         }
+//         else
+//         {
+//             groups_created++;
+//         }
+//     }
+// }
+
+// void *group_member_function(void *arg)
+// {
+//     MemberInfo *member = (MemberInfo *)arg;
+//     int met_person_id = -1;
+//     float interaction_time = 0;
+
+//     while (1) {
+//         met_person_id = rand() % MAX_PEOPLE;
+//         if (pthread_mutex_trylock(&person_mutex[met_person_id]) == 0) {
+//             if (person_busy[met_person_id] == 0) {
+//                 person_busy[met_person_id] = 1;
+//                 break;
+//             } else {
+//                 pthread_mutex_unlock(&person_mutex[met_person_id]);
+//             }
+//         }
+//     }
+
+//     interaction_time = (float)(rand() % 10 + 1);
+//     sleep((int)interaction_time);
+
+//     pthread_mutex_lock(&person_mutex[met_person_id]);
+//     person_busy[met_person_id] = 0;
+//     pthread_mutex_unlock(&person_mutex[met_person_id]);
+
+//     return NULL;
+// }
