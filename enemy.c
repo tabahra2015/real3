@@ -112,8 +112,4 @@ void start_enemy_create()
         }
     }
 
-    for (int i = 0; i < num_enemies; i++)
-    {
-        waitpid(enemy_pids[i], NULL, 0); 
-    }
 }

@@ -28,6 +28,9 @@
 #define QUEUE_NAME "/monitor_queue"
 #define MESSAGE_SIZE 256
 #define SEED 1234
+#define MAX_GROUPS_define 100
+#define MAX_MEMBERS_define 100
+
 // Declare these as const variables
 extern int MAX_GROUPS;
 extern int MIN_MEMBERS;
@@ -45,6 +48,7 @@ typedef enum {
 typedef enum {
     EGENCY_MEMBER,
     SPY,
+    RESISTEANCE_MEMBER,
     CIVILIAN
 } MemberType;
 
@@ -72,7 +76,7 @@ typedef struct {
     int group_id;
     int group_size;
     GroupType group_type;
-  //  MemberInfo members[MAX_MEMBERS];
+    MemberInfo members[MAX_MEMBERS_define];
     float spy_target_probability;
 } ResistanceGroup;
 
@@ -89,5 +93,12 @@ extern int groups_created;
 extern AgencyMember members[100];
 extern pid_t enemy_pids[6]; 
 extern int active_members;
-extern int groups_created;
+
+
+
+extern ResistanceGroup groups[MAX_GROUPS_define];
+extern pid_t group_pids[MAX_GROUPS_define];
+extern int groups_created ;
+
+
 #endif // __LOCAL_H_s

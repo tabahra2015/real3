@@ -1,6 +1,8 @@
 #include "local.h"
 #include "civilian.h"
 #include "enemy.h" 
+#include "resistance.h"
+
 #define LINE_MAX_LENGTH 256
 #define DEFAULT_ARGUMENT_FILE "arguments.txt"
 #define MAX_PEOPLE 1000
@@ -11,7 +13,6 @@ void *group_member_function(void *arg);
 void *agency_member_function(void *arg);
 void group_process(ResistanceGroup *group);
 void agency_process();
-void create_group();
 void start_group_creation_timer();
 void alarm_handler(int sig);
 
@@ -25,7 +26,11 @@ float SPY_TARGET_PROBABILITY = 0.5f;
 int TIME_EGENY_THRESHOLD =10;
 pid_t enemy_pids[6]; 
 AgencyMember members[100];
-int groups_created;
+
+ResistanceGroup groups[MAX_GROUPS_define];
+pid_t group_pids[MAX_GROUPS_define];
+int groups_created = 0;
+
 
 void initialize_person_locks()
 {
@@ -69,12 +74,18 @@ int main(int argc, char *argv[])
         printf("Agency process PID: %d\n", agency_pid);
     }
      //this in order to create the enemy 
-    start_enemy_create();
+    //start_enemy_create();
     start_group_creation_timer();
     while (1)
     {
         /* code */
     }
+
+
+    // for (int i = 0; i < num_enemies; i++)
+    // {
+    //     waitpid(enemy_pids[i], NULL, 0); 
+    // }
     
     //     // Fork the civilian process
     // pid_t civilian_pid = fork();
@@ -329,7 +340,7 @@ void alarm_handler(int sig)
     {
         int next_interval = 1 + (rand() % 5); // Random interval between 1 and 5 seconds
         alarm(next_interval);
-        printf("Next group will be created in %d seconds.\n", next_interval);
+       // printf("Next group will be created in %d seconds.\n", next_interval);
     }
 }
 
