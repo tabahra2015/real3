@@ -5,88 +5,101 @@
 #define INJURED 1
 #define CAUGHT 2
 
-
 int select_member_to_target()
 {
     int target_id = -1;
     int max_time = 0;
 
-    // Find the member with the longest time in the agency
-    for (int i = 0; i < MAX_MEMBERS; i++)
+    while (1)
     {
-        if (members[i].status != DEAD)
-        {
-            // Calculate the time spent in the agency by comparing current time with start_time
-            time_t current_time = time(NULL);
-            int time_in_agency = (int)difftime(current_time, members[i].start_time);
+        int random_index = rand() % MAX_MEMBERS;
 
-            // Select the member with the longest time in the agency that exceeds the user-defined threshold
+        if (members[random_index].status != 1)
+        {
+            time_t current_time = time(NULL);
+            int time_in_agency = (int)difftime(current_time, members[random_index].start_time);
+
             if (time_in_agency >= TIME_EGENY_THRESHOLD && time_in_agency > max_time)
             {
                 max_time = time_in_agency;
-                target_id = i;
+                target_id = random_index;
+                return target_id;
             }
         }
     }
-
-    return target_id;
 }
 
 
-void enemy_function()
+ void notify_monitor(int member_id, MemberStatus status) {
+    printf("Sending message to monitor\n");
+
+    key_t key;
+    int msgid;
+    key = ftok("progfile", SEED);
+
+    msgid = msgget(key, 0666 | IPC_CREAT);
+
+    if (msgid < 0) {
+        perror("msgget failed");
+        exit(1);
+    }
+    MonitorMessage msg;
+    msg.type = 1; 
+    msg.member_id = member_id;
+    msg.status = status;
+
+    // Send the message
+    if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0) {
+        perror("msgsnd failed");
+        exit(1);
+    }
+    printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
+}
+
+void enemy_function(int enemy_id)
 {
-    srand(time(NULL));
+    srand(time(NULL) + enemy_id);
 
     while (1)
     {
-        // Choose a random time to trigger an attack on a member
-        sleep(rand() % 5 + 1);  // Random delay between 1 to 5 seconds
-
-        // Select the member to attack based on the time spent in the agency
+        sleep(rand() % 40 + 5);
         int target_id = select_member_to_target();
-
         if (target_id != -1)
         {
-            // Randomly determine the attack event (0 = kill, 1 = injure, 2 = capture)
-            int event = rand() % 3;
-
+            int event = (rand() +enemy_id ) % 3 ;
             if (event == 0)
             {
                 members[target_id].status = DEAD;
-                printf("Enemy: Member %d killed\n", target_id);
+               // printf("Enemy: Member %d killed\n", target_id);
             }
             else if (event == 1)
             {
                 members[target_id].status = INJURED;
-                printf("Enemy: Member %d injured\n", target_id);
+              //  printf("Enemy: Member %d injured\n", target_id);
             }
             else if (event == 2)
             {
                 members[target_id].status = CAUGHT;
-                printf("Enemy: Member %d caught\n", target_id);
+              //  printf("Enemy: Member %d caught\n", target_id);
             }
-
-            // After the attack, the member is removed from active members
-            printf("Enemy: Member %d removed from the agency.\n", target_id);
-
-            // Simulate the enemy resting for a short period before attacking again
-            sleep(rand() % 7+ 3);  // Random delay between attacks (1 to 3 seconds)
+           // printf("Enemy: Member %d removed from the agency.\n", target_id);
         }
+        notify_monitor(target_id,members[target_id].status);
+        sleep(rand() % 10 + 3); 
     }
 }
 
 void start_enemy_create()
 {
-    int num_enemies = 6; 
-    
+    int num_enemies = 6;
 
     for (int i = 0; i < num_enemies; i++)
     {
         pid_t pid = fork();
         if (pid == 0)
         {
-            enemy_function();
-            exit(0); 
+            enemy_function(i);
+            exit(0);
         }
         else if (pid < 0)
         {
@@ -101,7 +114,6 @@ void start_enemy_create()
 
     for (int i = 0; i < num_enemies; i++)
     {
-        waitpid(enemy_pids[i], NULL, 0); // Wait for each child process by its PID
+        waitpid(enemy_pids[i], NULL, 0); 
     }
 }
-

@@ -1,7 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
+
 #include "resistance.h"
 
 // void group_process(ResistanceGroup *group)
@@ -42,37 +39,36 @@
 //     printf("Group %d process completed.\n", group->group_id);
 // }
 
-// void create_group()
-// {
-//     if (groups_created < MAX_GROUPS)
-//     {
-//         pid_t pid = fork();
-//         if (pid < 0)
-//         {
-//             perror("Fork failed");
-//             exit(EXIT_FAILURE);
-//         }
-//         else if (pid == 0)
-//         {
-//             int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
-//             ResistanceGroup group = {
-//                 .group_id = groups_created + 1,
-//                 .group_size = group_size,
-//                 .group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY,
-//                 .spy_target_probability = ((rand() % 2 == 0) ? SOCIAL : MILITARY) == MILITARY
-//                                               ? SPY_TARGET_PROBABILITY
-//                                               : 0.3
-//             };
-
-//             group_process(&group);
-//             exit(0);
-//         }
-//         else
-//         {
-//             groups_created++;
-//         }
-//     }
-// }
+void create_group()
+{
+    if (groups_created < MAX_GROUPS)
+    {
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            perror("Fork failed");
+            exit(EXIT_FAILURE);
+        }
+        else if (pid == 0)
+        {
+            int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
+            GroupType group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY;
+            float spy_target_probability = (group_type == MILITARY) ? SPY_TARGET_PROBABILITY : 0.3;
+            ResistanceGroup group = {
+                .group_id = groups_created + 1,
+                .group_size = group_size,
+                .group_type = group_type,
+                .spy_target_probability = spy_target_probability
+            };
+            group_process(&group);
+            exit(0);
+        }
+        else
+        {
+            groups_created++;
+        }
+    }
+}
 
 // void *group_member_function(void *arg)
 // {

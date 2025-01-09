@@ -1,7 +1,6 @@
 #include "local.h"
 #include "civilian.h"
-//#include "enemy.h"
-
+#include "enemy.h" 
 #define LINE_MAX_LENGTH 256
 #define DEFAULT_ARGUMENT_FILE "arguments.txt"
 #define MAX_PEOPLE 1000
@@ -24,8 +23,9 @@ int GROUP_CREATION_INTERVAL = 5;
 int CIVILIAN_COUNT = 30;
 float SPY_TARGET_PROBABILITY = 0.5f;
 int TIME_EGENY_THRESHOLD =10;
-
+pid_t enemy_pids[6]; 
 AgencyMember members[100];
+int groups_created;
 
 void initialize_person_locks()
 {
@@ -69,7 +69,8 @@ int main(int argc, char *argv[])
         printf("Agency process PID: %d\n", agency_pid);
     }
      //this in order to create the enemy 
-     start_enemy_create();
+    start_enemy_create();
+    start_group_creation_timer();
     while (1)
     {
         /* code */
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
     // }
 
     //     // Start the group creation timer
-    //     start_group_creation_timer();
+    
 
     //     // Wait for all child processes
     //     waitpid(agency_pid, NULL, 0);
@@ -166,32 +167,7 @@ void read_arguments(char *argument_file)
     fclose(file);
 }
 
-void notify_monitor(int member_id, MemberStatus status) {
-    printf("Sending message to monitor\n");
 
-    key_t key;
-    int msgid;
-    key = ftok("progfile", SEED);
-
-    msgid = msgget(key, 0666 | IPC_CREAT);
-
-    if (msgid < 0) {
-        perror("msgget failed");
-        exit(1);
-    }
-    MonitorMessage msg;
-    msg.type = 1; 
-    msg.member_id = member_id;
-    msg.status = status;
-
-    // Send the message
-    if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0) {
-        perror("msgsnd failed");
-        exit(1);
-    }
-
-    printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
-}
 
 
 // void group_process(ResistanceGroup *group)
@@ -346,29 +322,29 @@ void notify_monitor(int member_id, MemberStatus status) {
 //     }
 // }
 
-// void alarm_handler(int sig)
-// {
-//     create_group();
-//     if (groups_created < MAX_GROUPS)
-//     {
-//         int next_interval = 1 + (rand() % 5); // Random interval between 1 and 5 seconds
-//         alarm(next_interval);
-//         printf("Next group will be created in %d seconds.\n", next_interval);
-//     }
-// }
+void alarm_handler(int sig)
+{
+    create_group();
+    if (groups_created < MAX_GROUPS)
+    {
+        int next_interval = 1 + (rand() % 5); // Random interval between 1 and 5 seconds
+        alarm(next_interval);
+        printf("Next group will be created in %d seconds.\n", next_interval);
+    }
+}
 
-// void start_group_creation_timer()
-// {
-//     struct sigaction sa;
-//     sa.sa_handler = alarm_handler;
-//     sa.sa_flags = 0;
-//     sigemptyset(&sa.sa_mask);
+void start_group_creation_timer()
+{
+    struct sigaction sa;
+    sa.sa_handler = alarm_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
 
-//     if (sigaction(SIGALRM, &sa, NULL) == -1)
-//     {
-//         perror("sigaction failed");
-//         exit(EXIT_FAILURE);
-//     }
+    if (sigaction(SIGALRM, &sa, NULL) == -1)
+    {
+        perror("sigaction failed");
+        exit(EXIT_FAILURE);
+    }
 
-//     alarm(GROUP_CREATION_INTERVAL);
-// }
+    alarm(GROUP_CREATION_INTERVAL);
+}

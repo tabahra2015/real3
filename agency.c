@@ -1,9 +1,3 @@
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <stdbool.h>
 #include "agency.h"
 
 pthread_mutex_t lock;

@@ -89,5 +89,5 @@ extern int groups_created;
 extern AgencyMember members[100];
 extern pid_t enemy_pids[6]; 
 extern int active_members;
-
+extern int groups_created;
 #endif // __LOCAL_H_s
