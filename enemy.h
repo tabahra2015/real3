@@ -2,7 +2,7 @@
 #define ENEMY_H
 #include "local.h"
 
-int select_member_to_target();
+void select_member_to_target();
 // Function to start the enemy's attack on agency members
 void start_enemy_create();
 
