@@ -56,38 +56,38 @@ int select_member_to_target()
     printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
 }
 
-void enemy_function(int enemy_id)
-{
-    srand(time(NULL) + enemy_id);
+// void enemy_function(int enemy_id)
+// {
+//     srand(time(NULL) + enemy_id);
 
-    while (1)
-    {
-        sleep(rand() % 40 + 5);
-        int target_id = select_member_to_target();
-        if (target_id != -1)
-        {
-            int event = (rand() +enemy_id ) % 3 ;
-            if (event == 0)
-            {
-                members[target_id].status = DEAD;
-               // printf("Enemy: Member %d killed\n", target_id);
-            }
-            else if (event == 1)
-            {
-                members[target_id].status = INJURED;
-              //  printf("Enemy: Member %d injured\n", target_id);
-            }
-            else if (event == 2)
-            {
-                members[target_id].status = CAUGHT;
-              //  printf("Enemy: Member %d caught\n", target_id);
-            }
-           // printf("Enemy: Member %d removed from the agency.\n", target_id);
-        }
-        notify_monitor(target_id,members[target_id].status);
-        sleep(rand() % 10 + 3); 
-    }
-}
+//     while (1)
+//     {
+//         sleep(rand() % 40 + 5);
+//         int target_id = select_member_to_target();
+//         if (target_id != -1)
+//         {
+//             int event = (rand() +enemy_id ) % 3 ;
+//             if (event == 0)
+//             {
+//                 members[target_id].status = DEAD;
+//                // printf("Enemy: Member %d killed\n", target_id);
+//             }
+//             else if (event == 1)
+//             {
+//                 members[target_id].status = INJURED;
+//               //  printf("Enemy: Member %d injured\n", target_id);
+//             }
+//             else if (event == 2)
+//             {
+//                 members[target_id].status = CAUGHT;
+//               //  printf("Enemy: Member %d caught\n", target_id);
+//             }
+//            // printf("Enemy: Member %d removed from the agency.\n", target_id);
+//         }
+//         notify_monitor(target_id,members[target_id].status);
+//         sleep(rand() % 10 + 3); 
+//     }
+// }
 
 void start_enemy_create()
 {
@@ -110,5 +110,33 @@ void start_enemy_create()
             enemy_pids[i] = pid;
         }
     }
+
+}
+
+// Function for enemy's behavior, reading messages only
+void enemy_function(int enemy_id)
+{
+    key_t key = ftok("progfile", SEED + enemy_id + 5); 
+    int msgid = msgget(key, 0666 | IPC_CREAT);  
+
+    if (msgid < 0) {
+        perror("msgget failed");
+        exit(1);
+    }
+
+    printf("Enemy %d started with key %d\n", enemy_id, key);
+
+    while (1)
+    {
+        MonitorMessage message;
+        // if (msgrcv(msgid, &message, sizeof(MonitorMessage) - sizeof(long), 1, IPC_NOWAIT) >= 0)
+        // {
+        //     printf("Enemy %d received message: Member %d Status = %d, Message: %s\n", enemy_id, message.member_id, message.status, message.message);
+        // }
+        // else {
+        //     sleep(1); 
+        // }
+    }
+
 
 }

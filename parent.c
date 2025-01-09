@@ -1,6 +1,6 @@
 #include "local.h"
 #include "civilian.h"
-#include "enemy.h" 
+#include "enemy.h"
 #include "resistance.h"
 
 #define LINE_MAX_LENGTH 256
@@ -20,17 +20,19 @@ int MAX_GROUPS = 10;
 int MIN_MEMBERS = 3;
 int MAX_MEMBERS = 100;
 int AGENCY_MEMBERS = 50;
+int TOTAL_MEMBERS = 100;
 int GROUP_CREATION_INTERVAL = 5;
 int CIVILIAN_COUNT = 30;
 float SPY_TARGET_PROBABILITY = 0.5f;
-int TIME_EGENY_THRESHOLD =10;
-pid_t enemy_pids[6]; 
+int TIME_EGENY_THRESHOLD = 10;
+pid_t enemy_pids[6];
 AgencyMember members[100];
 ResistanceGroup groups[MAX_GROUPS_define];
 pid_t group_pids[MAX_GROUPS_define];
+pid_t citizen_pids[TOTAL_MEMBERS_define];
 int groups_created = 0;
 int num_enemies = 6;
-
+Citizen citizens[TOTAL_MEMBERS_define];
 
 void initialize_person_locks()
 {
@@ -73,20 +75,22 @@ int main(int argc, char *argv[])
     {
         printf("Agency process PID: %d\n", agency_pid);
     }
-     //this in order to create the enemy 
-    //start_enemy_create();
+    // this in order to create the enemy
+    // start_enemy_create();
     start_group_creation_timer();
+    create_citizens();
+
+    send_message_to_random_citizen();
     while (1)
     {
         /* code */
     }
 
-
     // for (int i = 0; i < num_enemies; i++)
     // {
-    //     waitpid(enemy_pids[i], NULL, 0); 
+    //     waitpid(enemy_pids[i], NULL, 0);
     // }
-    
+
     //     // Fork the civilian process
     // pid_t civilian_pid = fork();
     // if (civilian_pid < 0)
@@ -106,7 +110,6 @@ int main(int argc, char *argv[])
     // }
 
     //     // Start the group creation timer
-    
 
     //     // Wait for all child processes
     //     waitpid(agency_pid, NULL, 0);
@@ -117,6 +120,11 @@ int main(int argc, char *argv[])
     //     }
 
     //     printf("All processes completed.\n");
+
+    for (int i = 0; i < TOTAL_MEMBERS; i++)
+    {
+        wait(NULL); // Wait for all child processes
+    }
     //     return 0;
 }
 
@@ -168,18 +176,93 @@ void read_arguments(char *argument_file)
             token = strtok(NULL, " ");
             SPY_TARGET_PROBABILITY = atof(token);
         }
-         else if (strcmp(token, "TIME_EGENY_THRESHOLD") == 0)
+        else if (strcmp(token, "TIME_EGENY_THRESHOLD") == 0)
         {
             token = strtok(NULL, " ");
             TIME_EGENY_THRESHOLD = atoi(token);
         }
-
     }
     fclose(file);
 }
 
+// typedef struct {
+//      long message_type;
+//      int  time_to_intercat;
+//      int id_cit;          // Citizen ID
+//      int id_res;
+//      int id_group;
+//      char text[MESSAGE_SIZE];
+//  } MessageCitToRes;
 
+void send_message_to_random_citizen()
+{
 
+    int msqid;
+    key_t key = ftok("msgqueue", 65);
+    int selected_citizen=0;
+    int selected_member, selected_group;
+    MemberInfo *target_citizen;
+    MessageCitToRes msg;
+    while (1)
+    {
+        do
+        {
+            selected_citizen = rand() % TOTAL_MEMBERS + 1;
+            printf("hiiiiiiiiiiiiii\n");
+        } while (citizens[selected_citizen - 1].busy == 1);
+
+        do
+        {
+            selected_group = rand() % MAX_GROUPS_define;
+            if (groups[selected_group].group_size == 0)
+                continue;
+            selected_member = rand() % groups[selected_group].group_size;
+            target_citizen = &groups[selected_group].members[selected_member];
+        } while (target_citizen->busy == 1);
+
+        printf(" dooonnnnneeeee\n");
+        key_t key = ftok("msgqueue", 65) + (key_t)selected_citizen;
+
+        msqid = msgget(key, 0666 | IPC_CREAT);
+
+        MessageCitToRes msg;
+        msg.message_type = 1; 
+        msg.id_cit = selected_citizen;
+        msg.id_res = selected_member;
+        msg.id_group = selected_group;
+        msg.time_to_intercat = rand() % (40 - 20 + 1) + 20;
+        snprintf(msg.text, sizeof(msg.text), "Task for Citizen %d in Group %d", selected_citizen, selected_group);
+
+        if (msgsnd(msqid, &msg, sizeof(msg) - sizeof(long), 0) == -1)
+        {
+            perror("msgsnd failed");
+        }
+        else
+        {
+            printf("Message sent to Citizen ID: %d\n", selected_citizen);
+        }
+        // if (msgsnd(msqid, &msg, sizeof(msg) - sizeof(long), 0) == -1)
+        // {
+        //     perror("msgsnd failed");
+        // }
+        // else
+        // {
+        //     printf("Message sent to Citizen ID: %d\n", selected_citizen);
+        // }
+        // key = ftok("msgqueue", 65) + selected_member+100+selected_group;
+        //         msqid = msgget(key, 0666 | IPC_CREAT);
+
+        //   if (msgsnd(msqid, &msg, sizeof(msg), 0) == -1)
+        // {
+        //     perror("msgsnd failed");
+        // }
+        // else
+        // {
+        //     printf("Parent sent message to Citizen ID: %d\n", selected_citizen);
+        // }
+        sleep(20);
+    }
+}
 
 // void group_process(ResistanceGroup *group)
 // {
@@ -340,7 +423,7 @@ void alarm_handler(int sig)
     {
         int next_interval = 1 + (rand() % 5); // Random interval between 1 and 5 seconds
         alarm(next_interval);
-       // printf("Next group will be created in %d seconds.\n", next_interval);
+        // printf("Next group will be created in %d seconds.\n", next_interval);
     }
 }
 
