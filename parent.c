@@ -1,15 +1,12 @@
 #include "local.h"
 #include "civilian.h"
-
+//#include "enemy.h"
 
 #define LINE_MAX_LENGTH 256
 #define DEFAULT_ARGUMENT_FILE "arguments.txt"
 #define MAX_PEOPLE 1000
-int person_busy[MAX_PEOPLE] = {0}; 
-pthread_mutex_t person_mutex[MAX_PEOPLE]; 
-// Define an enum for resistance group types
-
-// Declare functions
+int person_busy[MAX_PEOPLE] = {0};
+pthread_mutex_t person_mutex[MAX_PEOPLE];
 void read_arguments(char *argument_file);
 void *group_member_function(void *arg);
 void *agency_member_function(void *arg);
@@ -19,20 +16,21 @@ void create_group();
 void start_group_creation_timer();
 void alarm_handler(int sig);
 
-
-
 int MAX_GROUPS = 10;
 int MIN_MEMBERS = 3;
 int MAX_MEMBERS = 100;
 int AGENCY_MEMBERS = 50;
 int GROUP_CREATION_INTERVAL = 5;
 int CIVILIAN_COUNT = 30;
-float SPY_TARGET_PROBABILITY = 0.5f; 
+float SPY_TARGET_PROBABILITY = 0.5f;
+int TIME_EGENY_THRESHOLD =10;
+
 AgencyMember members[100];
 
-
-void initialize_person_locks() {
-    for (int i = 0; i < MAX_PEOPLE; i++) {
+void initialize_person_locks()
+{
+    for (int i = 0; i < MAX_PEOPLE; i++)
+    {
         pthread_mutex_init(&person_mutex[i], NULL);
     }
 }
@@ -70,39 +68,45 @@ int main(int argc, char *argv[])
     {
         printf("Agency process PID: %d\n", agency_pid);
     }
-
-//     // Fork the civilian process
-    pid_t civilian_pid = fork();
-    if (civilian_pid < 0)
+     //this in order to create the enemy 
+     start_enemy_create();
+    while (1)
     {
-        perror("Fork failed");
-        exit(EXIT_FAILURE);
+        /* code */
     }
-    else if (civilian_pid == 0)
-    {
-        printf("Civilian process started (PID: %d).\n", getpid());
-        civilian_process();
-        exit(0);
-    }
-    else
-    {
-        printf("Civilian process PID: %d\n", civilian_pid);
-    }
+    
+    //     // Fork the civilian process
+    // pid_t civilian_pid = fork();
+    // if (civilian_pid < 0)
+    // {
+    //     perror("Fork failed");
+    //     exit(EXIT_FAILURE);
+    // }
+    // else if (civilian_pid == 0)
+    // {
+    //     printf("Civilian process started (PID: %d).\n", getpid());
+    //     civilian_process();
+    //     exit(0);
+    // }
+    // else
+    // {
+    //     printf("Civilian process PID: %d\n", civilian_pid);
+    // }
 
-//     // Start the group creation timer
-//     start_group_creation_timer();
+    //     // Start the group creation timer
+    //     start_group_creation_timer();
 
-//     // Wait for all child processes
-//     waitpid(agency_pid, NULL, 0);
-//     waitpid(civilian_pid, NULL, 0);
-//     while (1)
-//     {
-//         pause(); // Wait for signals
-//     }
+    //     // Wait for all child processes
+    //     waitpid(agency_pid, NULL, 0);
+    //     waitpid(civilian_pid, NULL, 0);
+    //     while (1)
+    //     {
+    //         pause(); // Wait for signals
+    //     }
 
-//     printf("All processes completed.\n");
-//     return 0;
- }
+    //     printf("All processes completed.\n");
+    //     return 0;
+}
 
 void read_arguments(char *argument_file)
 {
@@ -150,10 +154,43 @@ void read_arguments(char *argument_file)
         else if (strcmp(token, "SPY_TARGET_PROBABILITY") == 0)
         {
             token = strtok(NULL, " ");
-            SPY_TARGET_PROBABILITY = atof(token); 
+            SPY_TARGET_PROBABILITY = atof(token);
         }
+         else if (strcmp(token, "TIME_EGENY_THRESHOLD") == 0)
+        {
+            token = strtok(NULL, " ");
+            TIME_EGENY_THRESHOLD = atoi(token);
+        }
+
     }
     fclose(file);
+}
+
+void notify_monitor(int member_id, MemberStatus status) {
+    printf("Sending message to monitor\n");
+
+    key_t key;
+    int msgid;
+    key = ftok("progfile", SEED);
+
+    msgid = msgget(key, 0666 | IPC_CREAT);
+
+    if (msgid < 0) {
+        perror("msgget failed");
+        exit(1);
+    }
+    MonitorMessage msg;
+    msg.type = 1; 
+    msg.member_id = member_id;
+    msg.status = status;
+
+    // Send the message
+    if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0) {
+        perror("msgsnd failed");
+        exit(1);
+    }
+
+    printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
 }
 
 
@@ -250,8 +287,6 @@ void read_arguments(char *argument_file)
 
 //     printf("Civilian process completed.\n");
 // }
-
-
 
 // void *agency_member_function(void *arg)
 // {

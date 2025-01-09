@@ -25,7 +25,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
-
+#define QUEUE_NAME "/monitor_queue"
+#define MESSAGE_SIZE 256
+#define SEED 1234
 // Declare these as const variables
 extern int MAX_GROUPS;
 extern int MIN_MEMBERS;
@@ -34,7 +36,7 @@ extern int AGENCY_MEMBERS;
 extern int GROUP_CREATION_INTERVAL;
 extern int CIVILIAN_COUNT;
 extern float SPY_TARGET_PROBABILITY;
-
+extern  int TIME_EGENY_THRESHOLD;
 typedef enum {
     SOCIAL,
     MILITARY
@@ -54,6 +56,7 @@ typedef enum {
 
 typedef struct {
     int id;
+    time_t start_time;
     MemberStatus status;
     pthread_t thread;
 } AgencyMember;
@@ -73,9 +76,18 @@ typedef struct {
     float spy_target_probability;
 } ResistanceGroup;
 
+// Message Structure
+typedef struct {
+    long type;           // Message type (required for SysV IPC)
+    int member_id;       // Member ID
+    MemberStatus status; // Status of the member
+} MonitorMessage;
+
+
 // Global variables (should be initialized in parent.c)
 extern int groups_created;
 extern AgencyMember members[100];
+extern pid_t enemy_pids[6]; 
 extern int active_members;
 
-#endif // __LOCAL_H_
+#endif // __LOCAL_H_s
