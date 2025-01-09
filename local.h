@@ -48,7 +48,7 @@ typedef enum {
 typedef enum {
     EGENCY_MEMBER,
     SPY,
-    RESISTEANCE_MEMBER,
+    RESISTANCE_MEMBER,
     CIVILIAN
 } MemberType;
 

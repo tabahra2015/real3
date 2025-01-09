@@ -1,5 +1,6 @@
 
 #include "resistance.h"
+pthread_mutex_t groups_mutex = PTHREAD_MUTEX_INITIALIZER;  // Mutex to protect the groups array
 
 
 void *group_member_function(void *arg)
@@ -31,60 +32,50 @@ void *group_member_function(void *arg)
 }
 
 
-void group_process(ResistanceGroup *group)
-{
-    pthread_t threads[group->group_size];
-    printf("Group %d process started (PID: %d) with %d members, Type: %s.\n", group->group_id, getpid(), group->group_size, group->group_type == SOCIAL ? "Social" : "Military");
+void group_process(ResistanceGroup *group) {
+    printf("Group %d process started (PID: %d) with %d members, Type: %s.\n", 
+           group->group_id, getpid(), group->group_size, 
+           group->group_type == SOCIAL ? "Social" : "Military");
 
-    // Ensure that there is at most one spy in the group
     int spy_index = rand() % group->group_size;
-    for (int i = 0; i < group->group_size; i++)
-    {
-        group->members[i].member_type = (i == spy_index) ? SPY : RESISTEANCE_MEMBER;
+
+    for (int i = 0; i < group->group_size; i++) {
+        group->members[i].member_id = i + 1;
+        group->members[i].member_type = (i == spy_index) ? SPY : RESISTANCE_MEMBER;
+        group->members[i].interaction_time = 0;
     }
 
-    if (group->group_type == MILITARY)
-    {
-        float random_value = (float)rand() / RAND_MAX;
-        if (random_value < group->spy_target_probability)
-        {
-            printf("Group %d (Military) has been targeted by the enemy.\n", group->group_id);
-        }
-        else
-        {
-            printf("Group %d (Military) is safe for now.\n", group->group_id);
-        }
+    for (int i = 0; i < group->group_size; i++) {
+        printf("Member %d: Type: %s, Interaction Time: %.2f seconds.\n", 
+               group->members[i].member_id, 
+               group->members[i].member_type == SPY ? "Spy" : "Resistance Member", 
+               group->members[i].interaction_time);
     }
 
-    for (int i = 0; i < group->group_size; i++)
-    {
-        pthread_create(&group->members[i].thread_id, NULL, group_member_function, &group->members[i].member_id);
-    }
 
-    for (int i = 0; i < group->group_size; i++)
-    {
-        pthread_join(group->members[i].thread_id, NULL);
-    }
 
-    printf("Group %d process completed.\n", group->group_id);
+    while(1){
+
+    }
 }
 
+  
 
 
-void create_group()
-{
 
-    printf(" start new group \n\n\n");
-    if (groups_created < MAX_GROUPS)
-    {
+
+void create_group() {
+    printf("Start new group\n\n\n");
+
+    pthread_mutex_lock(&groups_mutex);
+
+    if (groups_created < MAX_GROUPS) {
         pid_t pid = fork();
-        if (pid < 0)
-        {
+        if (pid < 0) {
             perror("Fork failed");
             exit(EXIT_FAILURE);
-        }
-        else if (pid == 0)
-        {
+        } else if (pid == 0) {
+            // Child process
             int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
             GroupType group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY;
             float spy_target_probability = (group_type == MILITARY) ? SPY_TARGET_PROBABILITY : 0.3;
@@ -94,14 +85,21 @@ void create_group()
                 .group_type = group_type,
                 .spy_target_probability = spy_target_probability
             };
+
             groups[groups_created] = group;  // Save the group in the array
             group_process(&group);
-            exit(0);
+
+            exit(0);  // Child process exits after creating the group
+        } else {
+            // Parent process
+            group_pids[groups_created] = pid;  // Save the PID of the process
+            groups_created++;  // Increment group count after creation
+
+            // Unlock mutex after accessing shared array
+            pthread_mutex_unlock(&groups_mutex);
         }
-        else
-        {
-            group_pids[groups_created] = pid; // Save the PID of the process
-            groups_created++;
-        }
+    } else {
+        printf("Maximum groups reached, cannot create more.\n");
+        pthread_mutex_unlock(&groups_mutex);
     }
 }
