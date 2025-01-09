@@ -39,40 +39,54 @@ extern int AGENCY_MEMBERS;
 extern int GROUP_CREATION_INTERVAL;
 extern int CIVILIAN_COUNT;
 extern float SPY_TARGET_PROBABILITY;
-extern  int TIME_EGENY_THRESHOLD;
-typedef enum {
+extern int TIME_EGENY_THRESHOLD;
+typedef enum
+{
     SOCIAL,
     MILITARY
 } GroupType;
 
-typedef enum {
+typedef enum
+{
     EGENCY_MEMBER,
     SPY,
     RESISTANCE_MEMBER,
     CIVILIAN
 } MemberType;
 
-typedef enum {
+typedef enum
+{
     ALIVE,
     DEAD,
     CAUGHT
 } MemberStatus;
 
-typedef struct {
+typedef struct
+{
+    int enemy_id;
+    int spy_id;
+    int group_number;
+    float time_spent_in_group;
+} Spy;
+
+typedef struct
+{
     int id;
     time_t start_time;
     MemberStatus status;
     pthread_t thread;
 } AgencyMember;
 
-typedef struct {
+typedef struct
+{
     int member_id;
     MemberType member_type;
     pthread_t thread_id;
     float interaction_time;
 } MemberInfo;
 
-typedef struct {
+typedef struct
+{
     int group_id;
     int group_size;
     GroupType group_type;
@@ -81,24 +95,22 @@ typedef struct {
 } ResistanceGroup;
 
 // Message Structure
-typedef struct {
+typedef struct
+{
     long type;           // Message type (required for SysV IPC)
     int member_id;       // Member ID
     MemberStatus status; // Status of the member
 } MonitorMessage;
 
-
 // Global variables (should be initialized in parent.c)
 extern int groups_created;
 extern AgencyMember members[100];
-extern pid_t enemy_pids[6]; 
+extern pid_t enemy_pids[6];
 extern int active_members;
+extern int num_enemies;
 
-
-
-extern ResistanceGroup groups[MAX_GROUPS_define];
+    extern ResistanceGroup groups[MAX_GROUPS_define];
 extern pid_t group_pids[MAX_GROUPS_define];
-extern int groups_created ;
-
+extern int groups_created;
 
 #endif // __LOCAL_H_s

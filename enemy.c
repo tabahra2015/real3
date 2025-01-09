@@ -91,7 +91,6 @@ void enemy_function(int enemy_id)
 
 void start_enemy_create()
 {
-    int num_enemies = 6;
 
     for (int i = 0; i < num_enemies; i++)
     {

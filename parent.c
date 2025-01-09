@@ -26,10 +26,10 @@ float SPY_TARGET_PROBABILITY = 0.5f;
 int TIME_EGENY_THRESHOLD =10;
 pid_t enemy_pids[6]; 
 AgencyMember members[100];
-
 ResistanceGroup groups[MAX_GROUPS_define];
 pid_t group_pids[MAX_GROUPS_define];
 int groups_created = 0;
+int num_enemies = 6;
 
 
 void initialize_person_locks()
