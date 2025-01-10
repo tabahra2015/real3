@@ -29,8 +29,8 @@ int select_member_to_target()
     }
 }
 
-
- void notify_monitor(int member_id, MemberStatus status) {
+void notify_monitor(int member_id, MemberStatus status)
+{
     printf("Sending message to monitor\n");
 
     key_t key;
@@ -39,17 +39,19 @@ int select_member_to_target()
 
     msgid = msgget(key, 0666 | IPC_CREAT);
 
-    if (msgid < 0) {
+    if (msgid < 0)
+    {
         perror("msgget failed");
         exit(1);
     }
     MonitorMessage msg;
-    msg.type = 1; 
+    msg.type = 1;
     msg.member_id = member_id;
     msg.status = status;
 
     // Send the message
-    if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0) {
+    if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0)
+    {
         perror("msgsnd failed");
         exit(1);
     }
@@ -85,18 +87,26 @@ int select_member_to_target()
 //            // printf("Enemy: Member %d removed from the agency.\n", target_id);
 //         }
 //         notify_monitor(target_id,members[target_id].status);
-//         sleep(rand() % 10 + 3); 
+//         sleep(rand() % 10 + 3);
 //     }
 // }
 
 void start_enemy_create()
 {
-
     for (int i = 0; i < num_enemies; i++)
     {
+        // Create a pipe for communication
+        if (pipe(pipes[i]) == -1)
+        {
+            perror("Pipe creation failed");
+            exit(1);
+        }
+
         pid_t pid = fork();
         if (pid == 0)
         {
+            // Child process: close the write end of the pipe
+            close(pipes[i][1]);
             enemy_function(i);
             exit(0);
         }
@@ -107,36 +117,43 @@ void start_enemy_create()
         }
         else
         {
+            // Parent process: close the read end of the pipe
+            close(pipes[i][0]);
             enemy_pids[i] = pid;
         }
     }
-
 }
 
 // Function for enemy's behavior, reading messages only
 void enemy_function(int enemy_id)
 {
-    key_t key = ftok("progfile", SEED + enemy_id + 5); 
-    int msgid = msgget(key, 0666 | IPC_CREAT);  
-
-    if (msgid < 0) {
-        perror("msgget failed");
-        exit(1);
-    }
-
-    printf("Enemy %d started with key %d\n", enemy_id, key);
+    int group_data[MAX_GROUPS_define] = {0};
+    MessageCitToRes message;
 
     while (1)
     {
-        MonitorMessage message;
-        // if (msgrcv(msgid, &message, sizeof(MonitorMessage) - sizeof(long), 1, IPC_NOWAIT) >= 0)
-        // {
-        //     printf("Enemy %d received message: Member %d Status = %d, Message: %s\n", enemy_id, message.member_id, message.status, message.message);
-        // }
-        // else {
-        //     sleep(1); 
-        // }
+        ssize_t bytes_read = read(pipes[enemy_id][0], &message, sizeof(MessageCitToRes));
+        if (bytes_read > 0)
+        {
+            //printf("Enemy %d received: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",enemy_id, message.message_type, message.time_to_intercat, message.id_cit, message.id_res, message.id_group);
+            if (message.id_group >= 0 && message.id_group < MAX_GROUPS)
+            {
+                group_data[message.id_group] += (message.time_to_intercat );
+                printf("Group %d total time_to_interact: %d\n", message.id_group, group_data[message.id_group]);
+                if (group_data[message.id_group] >= 100)
+                {
+                    printf("Group %d has reached the target difference of .\n", message.id_group);
+                    group_data[message.id_group] = 0;
+                }
+            }
+            else
+            {
+                printf("Invalid group ID: %d\n", message.id_group);
+            }
+        }
+        else
+        {
+            sleep(1);
+        }
     }
-
-
 }

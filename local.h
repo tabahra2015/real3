@@ -25,13 +25,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#define AGENCY_MSG_KEY 12345
 #define QUEUE_NAME "/monitor_queue"
+#define SHM_NAME "/my_shared_memory" 
 #define MESSAGE_SIZE 256
 #define SEED 1234
-#define MAX_GROUPS_define 100
-#define MAX_MEMBERS_define 100
-#define TOTAL_MEMBERS_define 200
-
+#define MAX_GROUPS_define 20
+#define MAX_MEMBERS_define 80
+#define TOTAL_MEMBERS_define 100
+#define MAX_ENEMIES  6
 // Declare these as const variables
 extern int MAX_GROUPS;
 extern int MIN_MEMBERS;
@@ -42,7 +44,7 @@ extern int CIVILIAN_COUNT;
 extern float SPY_TARGET_PROBABILITY;
 extern int TIME_EGENY_THRESHOLD;
 extern int TOTAL_MEMBERS;
-
+void setup_shared_memory();
 typedef enum
 {
     SOCIAL,
@@ -57,6 +59,13 @@ typedef enum
     CIVILIAN
 } MemberType;
 
+typedef struct {
+    int id_res;
+    int time_to_intercat;
+    int group_num;
+    int id_cit;
+} SharedMessage;
+
 
 typedef struct {
     long message_type;
@@ -64,7 +73,6 @@ typedef struct {
     int id_cit;          // Citizen ID
     int id_res;
     int id_group;
-    char text[MESSAGE_SIZE];
 } MessageCitToRes; 
 
 typedef enum
@@ -116,24 +124,30 @@ typedef struct
     float spy_target_probability;
 } ResistanceGroup;
 
-// Message Structure
 typedef struct
 {
-    long type;           // Message type (required for SysV IPC)
-    int member_id;       // Member ID
-    MemberStatus status; // Status of the member
+    long type;          
+    int member_id;       
+    MemberStatus status; 
 } MonitorMessage;
 
-// Global variables (should be initialized in parent.c)
 extern int groups_created;
 extern AgencyMember members[100];
-extern pid_t enemy_pids[6];
+
 extern pid_t citizen_pids[TOTAL_MEMBERS_define];
 extern int active_members;
 extern int num_enemies;
 
-extern ResistanceGroup groups[MAX_GROUPS_define];
+extern ResistanceGroup *groups;
 extern pid_t group_pids[MAX_GROUPS_define];
 extern int groups_created;
 extern Citizen citizens[TOTAL_MEMBERS_define];
+
+extern pid_t enemy_pids[MAX_ENEMIES];
+extern int pipes[MAX_ENEMIES][2];
+extern int pipesgroup[MAX_GROUPS_define][2];
+
+extern Spy spy[TOTAL_MEMBERS_define];
+extern pthread_mutex_t *groups_mutex;
+
 #endif // __LOCAL_H_s

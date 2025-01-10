@@ -10,43 +10,65 @@ float generate_interaction_time()
 
 void handle_citizen_task(int citizen_id)
 {
-    // int key  = ftok("msgqueue", 65) + 3 ;
+    int key = ftok("msgqueue", 65) + citizen_id;
 
-    // int msqid = msgget(key, 0666 | IPC_CREAT);
-    // MessageCitToRes msg;
+    int msqid = msgget(key, 0666 | IPC_CREAT);
+    MessageCitToRes msg;
 
-    // while (1)
-    // {
-    //     if (msgrcv(msqid, &msg, sizeof(msg) - sizeof(long), 1, 0) != -1)
-    //     {
-    //         printf("Received message for Citizen ID: %d   %d \n", msg.id_cit,citizen_id);
-    //         printf("Interaction time: %d seconds\n", msg.time_to_intercat);
-    //         citizens[msg.id_cit - 1].busy = 1;
-    //         sleep(msg.time_to_intercat); 
-    //         citizens[msg.id_cit - 1].busy = 0;
-    //         printf("Citizen ID: %d is now free.\n", msg.id_cit);
-    //     }
-    //     else
-    //     {
-    //         perror("msgrcv failed");
-    //     }
-    // }
+    while (1)
+    {
+        if (msgrcv(msqid, &msg, sizeof(msg) - sizeof(long), 1, 0) != -1)
+        {
+           // printf("Received message for Citizen ID: %d   %d  %d \n", msg.id_cit, citizen_id, citizens[citizen_id].member_type);
+            // printf("Interaction time: %d seconds\n", msg.time_to_intercat);
+            citizens[msg.id_cit - 1].busy = 1;
+            sleep(msg.time_to_intercat);
+            citizens[msg.id_cit - 1].busy = 0;
+            // printf("Citizen ID: %d is now free.\n", msg.id_cit);
 
-    // printf("Handling task for Citizen ID: %d\n", citizen_id);
+            if (citizens[citizen_id].member_type == 1)
+            {
+                ssize_t bytes_written = write(pipes[spy[citizen_id].enemy_id][1], &msg, sizeof(MessageCitToRes));
+                // if (bytes_written > 0)
+                // {
+                //     printf("Sender: Sent message to Enemy %d: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
+                //            spy[citizen_id].enemy_id, msg.message_type, msg.time_to_intercat, msg.id_cit, msg.id_res, msg.id_group);
+                // }
+                // else
+                // {
+                //     perror("Sender: Error writing to pipe");
+                // }
+            }
+        }
+        else
+        {
+            perror("msgrcv failed");
+        }
+    }
+
+    printf("Handling task for Citizen ID: %d\n", citizen_id);
 }
 
+// typedef struct
+// {
+//     int enemy_id;
+//     int spy_id;
+//     int group_number;
+//     float time_spent_in_group;
+// } Spy;
 void create_citizens()
 {
     int spy_count = 0;
     int civilian_count = 0;
 
-    for (int i = 0; i < TOTAL_MEMBERS; i++)
+    printf(" start create new new \n");
+    for (int i = 1; i < TOTAL_MEMBERS; i++)
     {
-        citizens[i].member_id = i + 1;
-        if (spy_count < TOTAL_MEMBERS / 5 && rand() % 5 == 0)
+        citizens[i].member_id = i;
+        if (spy_count < TOTAL_MEMBERS / 2 && rand() % 3 == 0)
         {
             citizens[i].member_type = SPY;
-            spy_count++;
+            spy[i].enemy_id = rand() % num_enemies + 1;   
         }
         else
         {
@@ -64,30 +86,23 @@ void create_citizens()
         }
         else if (pid == 0)
         {
-            // Child process: Handle citizen-specific logic
-            printf("Citizen ID: %d (PID: %d)\n", citizens[i].member_id, getpid());
-            printf("Citizen Type: %d\n", citizens[i].member_type);
-            printf("Interaction Time: %.2f\n", citizens[i].interaction_time);
-            printf("Busy: %d\n", citizens[i].busy);
+
             handle_citizen_task(citizens[i].member_id);
             exit(0);
         }
         else
         {
             citizen_pids[i] = pid;
-            continue; // Parent process keeps iterating over citizens and creating new forks
+            continue;
         }
     }
-
-    printf("Created %d citizens: %d Civilians and %d Spies.\n", TOTAL_MEMBERS, civilian_count, spy_count);
 }
 
-// Function to simulate a citizen becoming busy (for example, interacting with another member)
 void make_citizen_busy(int citizen_id)
 {
     if (citizen_id >= 1 && citizen_id <= TOTAL_MEMBERS)
     {
-        citizens[citizen_id - 1].busy = 1; // Mark citizen as busy
+        citizens[citizen_id - 1].busy = 1;
         printf("Citizen ID %d is now busy.\n", citizen_id);
     }
     else
@@ -96,7 +111,6 @@ void make_citizen_busy(int citizen_id)
     }
 }
 
-// Function to simulate a citizen becoming not busy after some time
 void make_citizen_not_busy(int citizen_id)
 {
     if (citizen_id >= 1 && citizen_id <= TOTAL_MEMBERS)

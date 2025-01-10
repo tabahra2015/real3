@@ -2,28 +2,45 @@
 
 pthread_mutex_t lock;
 
-void *agency_member_function(void *arg)
-{
+pthread_mutex_t shared_memory_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int shm_id;
+SharedMessage *shared_memory;
+void create_shared_memory() {
+    shm_id = shmget(IPC_PRIVATE, sizeof(SharedMessage) * MAX_MESSAGES, IPC_CREAT | 0666);
+    if (shm_id < 0) {
+        perror("shmget failed");
+        exit(1);
+    }
+    shared_memory = (SharedMessage *)shmat(shm_id, NULL, 0);
+    if ((long)shared_memory == -1) {
+        perror("shmat failed");
+        exit(1);
+    }
+}
+void *agency_member_function(void *arg) {
+    int agency_msgid = msgget(AGENCY_MSG_KEY, IPC_CREAT | 0666);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     AgencyMember *member = (AgencyMember *)arg;
-
-    printf("Member %d: Active\n", member->id);
-    while (1)
-    {
-        /* code */
+    create_shared_memory();
+    int message_index = 0;
+    while (1) {
+        MessageCitToRes message;
+        ssize_t bytes_read = msgrcv(agency_msgid, &message, sizeof(MessageCitToRes) - sizeof(long), 0, 0);
+        if (bytes_read > 0) {
+            printf("Agency received info: id_res = %d, interact time = %d\n", message.id_res, message.time_to_intercat);
+            if (message_index < MAX_MESSAGES) {
+                pthread_mutex_lock(&shared_memory_mutex); // Lock the shared memory mutex
+                shared_memory[message_index].id_res = message.id_res;
+                shared_memory[message_index].time_to_intercat = message.time_to_intercat;
+                message_index++;
+                pthread_mutex_unlock(&shared_memory_mutex); // Unlock the shared memory mutex
+            } else {
+                printf("Shared memory is full, cannot store more messages.\n");
+            }
+        }
+        sleep(1);
     }
-
-    // sleep(rand() % 5 + 1); // Simulate activity
-    // if (rand() % 2)
-    // {
-    //     member->status = DEAD;
-    //     printf("Member %d: Died\n", member->id);
-    // }
-    // else
-    // {
-    //     member->status = CAUGHT;
-    //     printf("Member %d: Caught\n", member->id);
-    // }
     return NULL;
 }
 
@@ -37,7 +54,6 @@ void add_new_member(int id)
         members[id].start_time = time(NULL);
         pthread_create(&members[id].thread, NULL, agency_member_function, &members[id]);
         active_members++;
-        printf("New Member %d added. Active members: %d\n", id, active_members);
     }
     pthread_mutex_unlock(&lock);
 }
@@ -46,9 +62,7 @@ void *monitor_function()
     key_t key;
     int msgid;
     MonitorMessage msg;
-    // Generate unique key
     key = ftok("progfile", SEED);
-    // Get message queue identifier
     msgid = msgget(key, 0666 | IPC_CREAT);
 
     if (msgid < 0)
@@ -68,7 +82,7 @@ void *monitor_function()
         }
 
         // Display the received message
-        printf("Data received: member_id=%d, status=%d\n", msg.member_id, msg.status);
+        printf("\nData received: member_id=%d, status=%d\n", msg.member_id, msg.status);
 
         // Validate member_id
         if (msg.member_id < 0 || msg.member_id >= MAX_MEMBERS)
@@ -95,7 +109,7 @@ void *monitor_function()
                 // Wait for the thread to be canceled
                 pthread_join(members[msg.member_id].thread, NULL);
                 pthread_mutex_unlock(&lock);
-                printf("Member %d removed.\n", members[msg.member_id].id);
+               // printf("Member %d removed.\n", members[msg.member_id].id);
                 members[msg.member_id].status = ALIVE;
                 add_new_member(msg.member_id);
             }
@@ -118,7 +132,7 @@ void agency_process()
         add_new_member(i);
     }
 
-    // Start monitoring thread
+    // Star thread
     pthread_t monitor_thread;
     pthread_create(&monitor_thread, NULL, monitor_function, NULL);
 

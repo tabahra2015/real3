@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include "local.h"
+#define MAX_MESSAGES 1000
 
 
 

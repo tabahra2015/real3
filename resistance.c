@@ -1,117 +1,109 @@
-
 #include "resistance.h"
-pthread_mutex_t groups_mutex = PTHREAD_MUTEX_INITIALIZER; // Mutex to protect the groups array
 
-// void *group_member_function(void *arg)
-// {
-//     // MemberInfo *member = (MemberInfo *)arg;
-//     // int met_person_id = -1;
-//     // float interaction_time = 0;
+pthread_mutex_t queue_mutexes[MAX_MEMBERS_define];
+MessageCitToRes queues[MAX_GROUPS_define];
 
-//     // while (1) {
-//     //     met_person_id = rand() % MAX_PEOPLE;
-//     //     if (pthread_mutex_trylock(&person_mutex[met_person_id]) == 0) {
-//     //         if (person_busy[met_person_id] == 0) {
-//     //             person_busy[met_person_id] = 1;
-//     //             break;
-//     //         } else {
-//     //             pthread_mutex_unlock(&person_mutex[met_person_id]);
-//     //         }
-//     //     }
-//     // }
+void *group_member_function(void *arg) {
+        int agency_msgid = msgget(AGENCY_MSG_KEY, IPC_CREAT | 0666);
 
-//     // interaction_time = (float)(rand() % 10 + 1);
-//     // sleep((int)interaction_time);
-
-//     // pthread_mutex_lock(&person_mutex[met_person_id]);
-//     // person_busy[met_person_id] = 0;
-//     // pthread_mutex_unlock(&person_mutex[met_person_id]);
-
-//     return NULL;
-// }
-
-void *group_member_function(void *arg)
-{
     MemberInfo *member = (MemberInfo *)arg;
+    int member_id = member->member_id;
+    SharedMessage message; // Updated type
 
-    while (1)
-    {
-        // member->interaction_time += 1.0; // Simulate interaction time
-        // printf("Member %d (Type: %s) interacting. Total time: %.2f seconds.\n",
-        //        member->member_id,
-        //        member->member_type == RESISTANCE_MEMBER ? "Resistance Member" : "Spy",
-        //        member->interaction_time);
-        // sleep(1); // Simulate delay
+    while (1) {
+        pthread_mutex_lock(&queue_mutexes[member_id]);
+        if (queues[member_id].id_res != 0) {
+            sleep(queues[member_id].time_to_intercat);
+            message.id_res = queues[member_id].id_res;
+            message.time_to_intercat = queues[member_id].time_to_intercat;
+            message.group_num = queues[member_id].id_group;
+            message.id_cit = queues[member_id].id_cit;
+            ssize_t bytes_written = msgsnd(agency_msgid, &message, sizeof(SharedMessage) - sizeof(long), 0);
+            if (bytes_written == -1) {
+                perror("Failed to send message");
+            } else {
+                printf("tooooooo  agency Group member %d sent message: interact time = %d, group = %d, city id = %d\n", 
+                    member_id, message.time_to_intercat, message.group_num, message.id_cit);
+            }
+            queues[member_id].id_res = 0; 
+        }
+        pthread_mutex_unlock(&queue_mutexes[member_id]);
+        sleep(1);
     }
-
     return NULL;
 }
 
-void *spy_function(void *arg)
-{
+
+void *spy_function(void *arg) {
     Spy *spy = (Spy *)arg;
 
-    while (1)
-    {
-        // spy->time_spent_in_group += 1.0; // Simulate time spent in group
-        // printf("Spy ID %d in Group %d interacting with Enemy ID %d. Time spent: %.2f seconds.\n",
-        //        spy->spy_id, spy->group_number, spy->enemy_id, spy->time_spent_in_group);
-        // sleep(1); // Simulate delay
+    while (1) {
+        // Generate a random time to sleep before sending a message (between 1 and 5 seconds)
+        int random_time = rand() % 20 + 1;
+        sleep(random_time);
+
+        // Check if the current citizen is a spy and has a valid enemy ID
+        if (citizens[spy->spy_id].member_type == 1) {
+            MessageCitToRes msg;
+            msg.id_res = spy->spy_id;
+            msg.time_to_intercat = rand() % 10 + 1;  // random interaction time (1 to 10)
+            msg.id_group = spy->group_number;
+
+            ssize_t bytes_written = write(pipes[spy->enemy_id][1], &msg, sizeof(MessageCitToRes));
+            // if (bytes_written > 0) {
+            //     printf("Spy %d sent message to enemy %d: interact time = %d\n", spy->spy_id, spy->enemy_id, msg.time_to_intercat);
+            // } else {
+            //     printf("Failed to send message from Spy %d to enemy %d\n", spy->spy_id, spy->enemy_id);
+            // }
+        }
     }
-
-    return NULL;
 }
-
-// Group process function
-void group_process(ResistanceGroup *group)
-{
-    printf("Group %d process started (PID: %d) with %d members, Type: %s.\n",
-           group->group_id, getpid(), group->group_size,
-           group->group_type == SOCIAL ? "Social" : "Military");
-
-    // Create threads for members
+void group_process(ResistanceGroup *group) {
     pthread_t *threads = malloc(group->group_size * sizeof(pthread_t));
     Spy spy_data = {0};
-
     int spy_index = rand() % group->group_size;
 
-    // Initialize members and assign roles
-    for (int i = 0; i < group->group_size; i++)
-    {
+    for (int i = 0; i < group->group_size; i++) {
         group->members[i].member_id = i + 1;
         group->members[i].member_type = (i == spy_index) ? SPY : RESISTANCE_MEMBER;
         group->members[i].interaction_time = 0;
-        group->members[i].busy=0;
-        if (i == spy_index)
-        {
+        group->members[i].busy = 0;
+
+        if (i == spy_index) {
             spy_data.spy_id = group->members[i].member_id;
             spy_data.enemy_id = rand() % num_enemies + 1;
             spy_data.group_number = group->group_id;
             spy_data.time_spent_in_group = 0;
             pthread_create(&threads[i], NULL, spy_function, &spy_data);
-        }
-        else
-        {
-            // Create thread for a regular member
+        } else {
             pthread_create(&threads[i], NULL, group_member_function, &group->members[i]);
         }
     }
 
-    // Wait for all threads to complete (infinite for this example)
-    for (int i = 0; i < group->group_size; i++)
-    {
-        pthread_join(threads[i], NULL);
+      while (1) {
+        MessageCitToRes message;
+        ssize_t bytes_read = read(pipesgroup[group->group_id][0], &message, sizeof(MessageCitToRes));
+        if (bytes_read > 0) {
+            message.id_group = group->group_id;
+            if (message.id_res >= 0 && message.id_res < group->group_size) {
+                pthread_mutex_lock(&queue_mutexes[message.id_res]);
+                queues[message.id_res] = message;
+                pthread_mutex_unlock(&queue_mutexes[message.id_res]);
+            } else {
+                printf("Invalid ID.\n");
+            }
+        } else {
+            sleep(1);  
+        }
     }
 
-    // Clean up
     free(threads);
 }
 
+
 void create_group()
 {
-    printf("Start new group\n\n\n");
-
-    pthread_mutex_lock(&groups_mutex);
+    pthread_mutex_lock(&groups_mutex[0]);
 
     if (groups_created < MAX_GROUPS)
     {
@@ -123,34 +115,31 @@ void create_group()
         }
         else if (pid == 0)
         {
-            // Child process
             int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
             GroupType group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY;
             float spy_target_probability = (group_type == MILITARY) ? SPY_TARGET_PROBABILITY : 0.3;
             ResistanceGroup group = {
-                .group_id = groups_created + 1,
+                .group_id = groups_created,
                 .group_size = group_size,
                 .group_type = group_type,
                 .spy_target_probability = spy_target_probability};
 
-            groups[groups_created] = group; // Save the group in the array
+            groups[groups_created] = group;
             group_process(&group);
-
-            exit(0); // Child process exits after creating the group
+            exit(0);
         }
         else
         {
-            // Parent process
-            group_pids[groups_created] = pid; // Save the PID of the process
-            groups_created++;                 // Increment group count after creation
-
-            // Unlock mutex after accessing shared array
-            pthread_mutex_unlock(&groups_mutex);
+            group_pids[groups_created] = pid;
+            groups_created++;
         }
     }
     else
     {
         printf("Maximum groups reached, cannot create more.\n");
-        pthread_mutex_unlock(&groups_mutex);
     }
+
+    pthread_mutex_unlock(&groups_mutex[0]);
 }
+
+
