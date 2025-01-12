@@ -216,19 +216,18 @@ void send_message_to_random_citizen()
         msg.id_res = selected_member;
         msg.id_group = selected_group;
         msg.time_to_intercat = rand() % (5) + 6;
-
+        msg.pid_group=group_pids[selected_group];
         if (msgsnd(msqid, &msg, sizeof(msg) - sizeof(long), 0) == -1)
         {
             perror("msgsnd failed");
         }
         ssize_t bytes_written = write(pipesgroup[selected_group][1], &msg, sizeof(MessageCitToRes));
-
-        sleep(4);
     }
 }
 
 void alarm_handler(int sig)
 {
+
     create_group();
     if (groups_created < MAX_GROUPS)
     {

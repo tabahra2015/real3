@@ -124,35 +124,34 @@ void start_enemy_create()
     }
 }
 
-// Function for enemy's behavior, reading messages only
-void enemy_function(int enemy_id)
-{
-    int group_data[MAX_GROUPS_define] = {0};
+void enemy_function(int enemy_id) {
     MessageCitToRes message;
-
-    while (1)
-    {
+    int group_data[MAX_GROUPS_define] = {0};
+    pid_t group;
+    while (1) {
         ssize_t bytes_read = read(pipes[enemy_id][0], &message, sizeof(MessageCitToRes));
-        if (bytes_read > 0)
-        {
-            //printf("Enemy %d received: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",enemy_id, message.message_type, message.time_to_intercat, message.id_cit, message.id_res, message.id_group);
-            if (message.id_group >= 0 && message.id_group < MAX_GROUPS)
-            {
-                group_data[message.id_group] += (message.time_to_intercat );
+        
+        if (bytes_read > 0) {
+            // printf("Enemy %d received: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
+            //        message.pid_group, message.message_type, message.time_to_intercat, message.id_cit, message.id_res, message.id_group);
+            
+            group=message.pid_group;
+            if (message.id_group >= 0 && message.id_group < MAX_GROUPS) {
+                group_data[message.id_group] += message.time_to_intercat;
                 printf("Group %d total time_to_interact: %d\n", message.id_group, group_data[message.id_group]);
-                if (group_data[message.id_group] >= 100)
-                {
-                    printf("Group %d has reached the target difference of .\n", message.id_group);
+                if (group_data[message.id_group] >= 20 && message.pid_group!=0) {
+                    
+                    printf("Group %d has reached the target time_to_interact. %d\n\n\n",group, message.pid_group);
+                    kill(group_pids[message.id_group], SIGUSR1);
                     group_data[message.id_group] = 0;
                 }
-            }
-            else
-            {
+            } else {
                 printf("Invalid group ID: %d\n", message.id_group);
             }
-        }
-        else
-        {
+        } else if (bytes_read == -1) {
+            perror("Error reading from pipe");
+            break;  // Handle error or exit
+        } else {
             sleep(1);
         }
     }

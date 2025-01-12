@@ -25,15 +25,20 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#define LIGHT_INJURY 1
+#define SEVERE_INJURY 2
+#define MEMBER_CAUGHT 3
+#define KILLED 4
+
 #define AGENCY_MSG_KEY 12345
 #define QUEUE_NAME "/monitor_queue"
-#define SHM_NAME "/my_shared_memory" 
+#define SHM_NAME "/my_shared_memory"
 #define MESSAGE_SIZE 256
 #define SEED 1234
 #define MAX_GROUPS_define 20
 #define MAX_MEMBERS_define 80
 #define TOTAL_MEMBERS_define 100
-#define MAX_ENEMIES  6
+#define MAX_ENEMIES 6
 // Declare these as const variables
 extern int MAX_GROUPS;
 extern int MIN_MEMBERS;
@@ -59,21 +64,23 @@ typedef enum
     CIVILIAN
 } MemberType;
 
-typedef struct {
+typedef struct
+{
     int id_res;
     int time_to_intercat;
     int group_num;
     int id_cit;
 } SharedMessage;
 
-
-typedef struct {
+typedef struct
+{
     long message_type;
-    int  time_to_intercat;
-    int id_cit;          // Citizen ID
+    int time_to_intercat;
+    int id_cit; // Citizen ID
     int id_res;
     int id_group;
-} MessageCitToRes; 
+    pid_t pid_group;
+} MessageCitToRes;
 
 typedef enum
 {
@@ -95,7 +102,7 @@ typedef struct
     int member_id;
     MemberType member_type;
     float interaction_time;
-    int busy;  // 0 = not busy, 1 = busy
+    int busy; // 0 = not busy, 1 = busy
 } Citizen;
 
 typedef struct
@@ -112,7 +119,10 @@ typedef struct
     MemberType member_type;
     pthread_t thread_id;
     float interaction_time;
-       int busy; 
+    int busy;
+    int active;
+     int injury_status; 
+    pthread_mutex_t lock;
 } MemberInfo;
 
 typedef struct
@@ -126,9 +136,9 @@ typedef struct
 
 typedef struct
 {
-    long type;          
-    int member_id;       
-    MemberStatus status; 
+    long type;
+    int member_id;
+    MemberStatus status;
 } MonitorMessage;
 
 extern int groups_created;

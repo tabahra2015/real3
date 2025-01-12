@@ -29,15 +29,16 @@ void handle_citizen_task(int citizen_id)
             if (citizens[citizen_id].member_type == 1)
             {
                 ssize_t bytes_written = write(pipes[spy[citizen_id].enemy_id][1], &msg, sizeof(MessageCitToRes));
-                // if (bytes_written > 0)
-                // {
+                if (bytes_written > 0)
+                {
                 //     printf("Sender: Sent message to Enemy %d: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
-                //            spy[citizen_id].enemy_id, msg.message_type, msg.time_to_intercat, msg.id_cit, msg.id_res, msg.id_group);
-                // }
-                // else
-                // {
-                //     perror("Sender: Error writing to pipe");
-                // }
+                //            spy[citizen_id].enemy_id, msg.message_type, msg.time_to_intercat, msg.pid_group, msg.id_res, msg.id_group);
+                }
+
+                else
+                {
+                    perror("Sender: Error writing to pipe");
+                }
             }
         }
         else
