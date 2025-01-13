@@ -43,6 +43,12 @@ void *agency_member_function(void *arg) {
                 shared_memory[message_index].id_cit = message.id_cit;
                 message_index++;
                 
+                // Analyze the stored message
+                if (message.time_to_intercat > SUSPICIOUS_TIME_THRESHOLD) {
+                    printf("Suspicious interaction detected: Civ %d with Group %d\n",
+                           message.id_cit, message.id_group);
+                }
+
                 pthread_mutex_unlock(&shared_memory_mutex); // Unlock shared memory mutex
             } else {
                 printf("Shared memory is full, cannot store more messages.\n");
@@ -113,6 +119,18 @@ void *monitor_function() {
                 add_new_member(msg.member_id); // Add a new member
             }
         }
+
+         pthread_mutex_lock(&shared_memory_mutex);
+        for (int i = 0; i < MAX_MESSAGES; i++) {
+            if (shared_memory[i].time_to_intercat > SUSPICIOUS_TIME_THRESHOLD) {
+                printf("Agency Monitor: Suspicious activity - Civ %d, Group %d\n",
+                       shared_memory[i].id_cit, shared_memory[i].group_num);
+                // Potential action: Mark civilian for further analysis
+            }
+        }
+        pthread_mutex_unlock(&shared_memory_mutex);
+
+        sleep(5);
     }
 
     msgctl(msgid, IPC_RMID, NULL);

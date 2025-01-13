@@ -50,6 +50,17 @@ extern float SPY_TARGET_PROBABILITY;
 extern int TIME_EGENY_THRESHOLD;
 extern int TOTAL_MEMBERS;
 void setup_shared_memory();
+#define AGENCY_MSG_KEY 1234
+#define SUSPICIOUS_TIME_THRESHOLD 10 // Example: Interaction > 10 seconds is suspicious
+
+
+typedef struct {
+    long message_type; // Message type (e.g., 1 for normal data)
+    int group_id;      // ID of the resistance group
+    int civilian_id;   // ID of the civilian
+    int interaction_time; // Time spent with the group
+} AgencyMessage;
+
 typedef enum
 {
     SOCIAL,
