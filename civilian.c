@@ -19,7 +19,7 @@ void handle_citizen_task(int citizen_id)
     {
         if (msgrcv(msqid, &msg, sizeof(msg) - sizeof(long), 1, 0) != -1)
         {
-           // printf("Received message for Citizen ID: %d   %d  %d \n", msg.id_cit, citizen_id, citizens[citizen_id].member_type);
+            printf("Received message for Citizen ID: %d   %d  %d \n", msg.id_cit, citizen_id, citizens[citizen_id].member_type);
             // printf("Interaction time: %d seconds\n", msg.time_to_intercat);
             citizens[msg.id_cit - 1].busy = 1;
             sleep(msg.time_to_intercat);
@@ -31,8 +31,8 @@ void handle_citizen_task(int citizen_id)
                 ssize_t bytes_written = write(pipes[spy[citizen_id].enemy_id][1], &msg, sizeof(MessageCitToRes));
                 if (bytes_written > 0)
                 {
-                //     printf("Sender: Sent message to Enemy %d: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
-                //            spy[citizen_id].enemy_id, msg.message_type, msg.time_to_intercat, msg.pid_group, msg.id_res, msg.id_group);
+                   printf("Citizen   to enemy : Sent message to Enemy %d: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
+                            spy[citizen_id].enemy_id, msg.message_type, msg.time_to_intercat, msg.pid_group, msg.id_res, msg.id_group);
                 }
 
                 else

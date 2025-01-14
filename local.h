@@ -35,11 +35,11 @@
 #define SHM_NAME "/my_shared_memory"
 #define MESSAGE_SIZE 256
 #define SEED 1234
-#define MAX_GROUPS_define 20
+#define MAX_GROUPS_define 5
 #define MAX_MEMBERS_define 80
 #define TOTAL_MEMBERS_define 100
 #define MAX_ENEMIES 6
-// Declare these as const variables
+// Declare these as const vagroups_createdriables
 extern int MAX_GROUPS;
 extern int MIN_MEMBERS;
 extern int MAX_MEMBERS;
@@ -50,7 +50,6 @@ extern float SPY_TARGET_PROBABILITY;
 extern int TIME_EGENY_THRESHOLD;
 extern int TOTAL_MEMBERS;
 void setup_shared_memory();
-#define AGENCY_MSG_KEY 1234
 #define SUSPICIOUS_TIME_THRESHOLD 10 // Example: Interaction > 10 seconds is suspicious
 
 
@@ -166,6 +165,9 @@ extern Citizen citizens[TOTAL_MEMBERS_define];
 
 extern pid_t enemy_pids[MAX_ENEMIES];
 extern int pipes[MAX_ENEMIES][2];
+extern int pipe_fd[2]; 
+extern int pipe_fd2[2];
+
 extern int pipesgroup[MAX_GROUPS_define][2];
 
 extern Spy spy[TOTAL_MEMBERS_define];
