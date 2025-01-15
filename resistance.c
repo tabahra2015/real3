@@ -72,7 +72,9 @@ void kill_processes(ResistanceGroup *current_group)
             }
             pthread_mutex_unlock(&current_group->members[j].lock);
         }
+
     updateTablesDataFile(); // Keep file updated
+
     } 
    printf("\n");
 

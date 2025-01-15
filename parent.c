@@ -156,7 +156,9 @@ int main(int argc, char *argv[])
     pthread_join(opengl_thread, NULL);
 
     printf("Program exiting cleanly.\n");
+
     destroy_semaphore(); // Destroy semaphore    
+
     return EXIT_SUCCESS;
 }
 
@@ -422,4 +424,6 @@ void updateTablesDataFile() {
     // Release the semaphore
     sem_post(file_semaphore);
     printf("tables_data.txt updated successfully.\n");
+    printf("Simulation terminated cleanly.\n");
+    exit(0);
 }

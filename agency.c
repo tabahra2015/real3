@@ -57,7 +57,10 @@ void *agency_member_function(void *arg)
             }
         }
         sleep(1);
+
         updateTablesDataFile(); // Keep file updated
+
+
     }
 
     return NULL;
