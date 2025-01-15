@@ -45,7 +45,7 @@ void handle_citizen_task(int citizen_id)
         {
             perror("msgrcv failed");
         }
-        updateTablesDataFile(); // Keep file updated
+        // updateTablesDataFile(); // Keep file updated
     }
 
     printf("Handling task for Citizen ID: %d\n", citizen_id);

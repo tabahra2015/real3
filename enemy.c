@@ -26,7 +26,6 @@ int select_member_to_target()
                 return target_id;
             }
         }
-        updateTablesDataFile(); // Keep file updated
     }
 }
 
@@ -119,7 +118,6 @@ void start_enemy_create()
             enemy_pids[i] = pid;
         }
     }
-    updateTablesDataFile(); // Keep file updated
 }
 
 void enemy_function(int enemy_id) {
@@ -152,6 +150,5 @@ void enemy_function(int enemy_id) {
         } else {
             sleep(1);
         }
-        updateTablesDataFile(); // Keep file updated
     }
 }

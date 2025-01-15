@@ -58,9 +58,6 @@ void *agency_member_function(void *arg)
         }
         sleep(1);
 
-        updateTablesDataFile(); // Keep file updated
-
-
     }
 
     return NULL;
@@ -118,7 +115,7 @@ void analyze_group_interactions(int group_num)
     }
 
     const char *spy_status = (highest_employee > SUSPICIOUS_TIME_THRESHOLD) ? "The spy in employee is" : "Employee with the Most Time";
-    const char *spy_status = (highest_employee > SUSPICIOUS_TIME_THRESHOLD) ? "The spy in employee is" : "Employee with the Most Time";
+    // const char *spy_status = (highest_employee > SUSPICIOUS_TIME_THRESHOLD) ? "The spy in employee is" : "Employee with the Most Time";
 
     // Print a line of underscores before the output
     printf("_____________________________________________________________\n");

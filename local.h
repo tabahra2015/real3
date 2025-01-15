@@ -49,22 +49,12 @@ extern int CIVILIAN_COUNT;
 extern float SPY_TARGET_PROBABILITY;
 extern int TIME_EGENY_THRESHOLD;
 extern int TOTAL_MEMBERS;
+extern int groups_created;
 void setup_shared_memory();
 #define SUSPICIOUS_TIME_THRESHOLD 10 // Example: Interaction > 10 seconds is suspicious
-sem_t *file_semaphore;
-
-void initialize_semaphore() {
-    file_semaphore = sem_open("/file_semaphore", O_CREAT, 0644, 1); // Semaphore with initial value 1
-    if (file_semaphore == SEM_FAILED) {
-        perror("Failed to initialize semaphore");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void destroy_semaphore() {
-    sem_close(file_semaphore);
-    sem_unlink("/file_semaphore");
-}
+extern sem_t *file_semaphore;  
+void initialize_semaphore();
+void destroy_semaphore();
 
 typedef struct {
     long message_type; // Message type (e.g., 1 for normal data)

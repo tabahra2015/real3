@@ -73,7 +73,7 @@ void kill_processes(ResistanceGroup *current_group)
             pthread_mutex_unlock(&current_group->members[j].lock);
         }
 
-    updateTablesDataFile(); // Keep file updated
+    // updateTablesDataFile(); // Keep file updated
 
     } 
    printf("\n");
@@ -114,7 +114,7 @@ void *group_member_function(void *arg)
         }
         pthread_mutex_unlock(&queue_mutexes[member_id]);
         sleep(1);
-        updateTablesDataFile(); // Keep file updated
+        // updateTablesDataFile(); // Keep file updated
     }
     return NULL;
 }
@@ -218,7 +218,7 @@ void group_process(ResistanceGroup *group)
         }
     }
     free(threads);
-    updateTablesDataFile(); // Keep file updated
+    // updateTablesDataFile(); // Keep file updated
 }
 
 void create_group()

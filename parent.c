@@ -33,7 +33,8 @@ AgencyMember members[100];
 ResistanceGroup *groups;
 pid_t group_pids[MAX_GROUPS_define];
 pid_t citizen_pids[TOTAL_MEMBERS_define];
-int groups_created = 0;
+sem_t *file_semaphore;
+int groups_created = 0;    
 int num_enemies = 6;
 int pipes[MAX_ENEMIES][2];
 int pipesgroup[MAX_GROUPS_define][2];
@@ -45,6 +46,20 @@ pthread_mutex_t *groups_mutex;
 Citizen citizens[TOTAL_MEMBERS_define];
 
 pthread_t opengl_thread;
+
+
+void initialize_semaphore() {
+    file_semaphore = sem_open("/file_semaphore", O_CREAT, 0644, 1); // Semaphore with initial value 1
+    if (file_semaphore == SEM_FAILED) {
+        perror("Failed to initialize semaphore");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void destroy_semaphore() {
+    sem_close(file_semaphore);
+    sem_unlink("/file_semaphore");
+}
 
 void initialize_person_locks()
 {
@@ -400,30 +415,38 @@ void updateTablesDataFile() {
         exit(EXIT_FAILURE);
     }
 
-    // Write Table 1
-    fprintf(file, "# Table 1:\n");
-    fprintf(file, "# Format: ResID, Res Destiny, percentage\n");
-    for (int i = 0; i < group_count; i++) {
-        fprintf(file, "%d,%s,%.2f%%\n", ResistanceGroup[i].members.member_id, //res ID
-                .status, // res destuny
-                .members.spy_target_probability * 100);// percentage
+      // Write Table 1: Team Information
+    fprintf(file, "# Table 1: Team Information\n");
+    fprintf(file, "# Format: ResID, Res Destiny(dead,caught,injured,active), percentage of spy_target_probability\n");
+    for (int i = 0; i < groups_created; i++) {
+        for (int j = 0; j < groups[i].group_size; j++) {
+            fprintf(file, "%d,%s,%.2f%%\n",
+                    groups[i].members[j].member_id,
+                    (groups[i].members[j].active ? "active" :
+                     (groups[i].members[j].injury_status == 0 ? "dead" : "injured")),
+                    groups[i].spy_target_probability * 100);
+        }
     }
 
-    // Write Table 2
-    fprintf(file, "\n# Table 2:\n");
-    fprintf(file, "# Format: ResID, citizen ID, Duration\n");
-    for (int i = 0; i < member_count; i++) {
-        fprintf(file, "%d,%d,%d minutes\n", 
-                .id, //res ID
-                .id, //citizen id
-                ResistanceGroup.members.interaction_time); // duration
+    // Write Table 2: Player Statistics
+    fprintf(file, "\n# Table 2: Player Statistics\n");
+    fprintf(file, "# Format: ResID, CitizenID, Interaction Time\n");
+    for (int i = 0; i < groups_created; i++) {
+        for (int j = 0; j < groups[i].group_size; j++) {
+            fprintf(file, "%d,%d,%.2f minutes\n",
+                    groups[i].group_id,
+                    groups[i].members[j].member_id,
+                    groups[i].members[j].interaction_time);
+        }
     }
 
     fclose(file);
 
     // Release the semaphore
     sem_post(file_semaphore);
+
     printf("tables_data.txt updated successfully.\n");
     printf("Simulation terminated cleanly.\n");
     exit(0);
 }
+

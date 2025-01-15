@@ -36,89 +36,114 @@ void readDataFromFile() {
 
     char line[256];
     while (fgets(line, sizeof(line), file)) {
+        // Process Table 1: Team Information
         if (strncmp(line, "# Table 1", 9) == 0) {
-            // Read teams
-            // Read Table 1
             while (fgets(line, sizeof(line), file) && line[0] != '#') {
-                ResistanceGroup group;
+                int res_id;
                 char destiny[50];
                 float percentage;
 
-                if (sscanf(line, "%d,%49[^,],%f%%", &group.group_id, destiny, &percentage) == 3) {
-                    group.spy_target_probability = percentage / 100;
-                    group.group_type = (strcmp(destiny, "Alpha") == 0) ? TYPE_ALPHA : TYPE_BETA;
-                    groups[(*group_count)++] = group;
+                if (sscanf(line, "%d,%49[^,],%f%%", &res_id, destiny, &percentage) == 3) {
+                    for (int i = 0; i < groups_created; i++) {
+                        for (int j = 0; j < groups[i].group_size; j++) {
+                            if (groups[i].members[j].member_id == res_id) {
+                                groups[i].members[j].active = strcmp(destiny, "active") == 0;
+                                groups[i].members[j].injury_status = 
+                                    (strcmp(destiny, "injured") == 0) ? 1 : 0;
+                                groups[i].spy_target_probability = percentage / 100;
+                            }
+                        }
+                    }
                 }
             }
-        } else if (strncmp(line, "# Table 2:", 10) == 0) {
-            // Read Table 2
+        }
+        // Process Table 2: Player Statistics
+        else if (strncmp(line, "# Table 2", 9) == 0) {
             while (fgets(line, sizeof(line), file) && line[0] != '#') {
-                int res_id, citizen_id, duration;
+                int res_id, citizen_id;
+                float interaction_time;
 
-                if (sscanf(line, "%d,%d,%d minutes", &res_id, &citizen_id, &duration) == 3) {
-                    members[*member_count].id = citizen_id;
-                    members[*member_count].status = ACTIVE; // Set default status
-                    (*member_count)++;
+                if (sscanf(line, "%d,%d,%f minutes", &res_id, &citizen_id, &interaction_time) == 3) {
+                    for (int i = 0; i < groups_created; i++) {
+                        if (groups[i].group_id == res_id) {
+                            for (int j = 0; j < groups[i].group_size; j++) {
+                                if (groups[i].members[j].member_id == citizen_id) {
+                                    groups[i].members[j].interaction_time = interaction_time;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
     fclose(file);
+
     // Release the semaphore
     sem_post(file_semaphore);
-    renderPlayerTable();
-    renderTeamTable();
-}
 
+    // renderPlayerTable();
+    // renderTeamTable();
+}
 
 // Function to display a single table row as text
 void drawText(float x, float y, const char *text, void *font) {
-        glColor3f(0.0, 0.0, 1.0); // Blue text color
+    glColor3f(0.0, 0.0, 1.0); // Blue text color
     glRasterPos2f(x, y);
     while (*text) {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text++);
+        glutBitmapCharacter(font, *text++);
     }
 }
 
-// Function to render Player Information Table
+// Function to render Player Information Table (Table 1)
 void renderPlayerTable() {
-    float y = 0.8f; // Start Y position
-    drawText(-0.9f, y, "Player Information Table:", GLUT_BITMAP_HELVETICA_18); // Title
+    float y = 0.8f;
+    drawText(-0.9f, y, "Player Information Table (Team Info):", GLUT_BITMAP_HELVETICA_18);
     y -= 0.1f;
-
-    // Draw headers
     drawText(-0.9f, y, "Res ID, Res Destiny, Percentage", GLUT_BITMAP_HELVETICA_18);
     y -= 0.1f;
 
-    // Draw data
-    for (int i = 0; i < player_count; i++) {
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer), "%d, %s, %s", players[i].id, players[i].name, players[i].state); // Assuming 'state' maps to percentage
-        drawText(-0.9f, y, buffer, GLUT_BITMAP_HELVETICA_18);
-        y -= 0.1f;
+    for (int i = 0; i < groups_created; i++) {
+        for (int j = 0; j < groups[i].group_size; j++) {
+            char buffer[256];
+            snprintf(buffer, sizeof(buffer), "%d, %s, %.2f%%",
+                     groups[i].members[j].member_id,
+                     groups[i].members[j].active ? "active" :
+                     (groups[i].members[j].injury_status == 0 ? "dead" : "injured"),
+                     groups[i].spy_target_probability * 100);
+            drawText(-0.9f, y, buffer, GLUT_BITMAP_HELVETICA_18);
+            y -= 0.1f;
+        }
     }
 }
 
 
-
+// Function to render Team Statistics Table (Table 2)
 void renderTeamTable() {
-    float y = 0.0f; // Start Y position
-    drawText(-0.9f, y, "Team Statistics Table:", GLUT_BITMAP_HELVETICA_18); // Title
+    float y = 0.8f; // Start Y position
+    drawText(0.2f, y, "Team Statistics Table (Player Stats):", GLUT_BITMAP_HELVETICA_18); // Title
     y -= 0.1f;
 
     // Draw headers
-    drawText(-0.9f, y, "Res ID, Citizen ID, Duration, State", GLUT_BITMAP_HELVETICA_18);
+    drawText(0.2f, y, "Res ID, Citizen ID, Interaction Time", GLUT_BITMAP_HELVETICA_18);
     y -= 0.1f;
 
     // Draw data
-    for (int i = 0; i < team_count; i++) {
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer), "%d, %s, %s, %s", teams[i].team_id, teams[i].name, teams[i].duration, teams[i].state);
-        drawText(-0.9f, y, buffer, GLUT_BITMAP_HELVETICA_18);
-        y -= 0.1f;
+    for (int i = 0; i < groups_created; i++) {
+        for (int j = 0; j < groups[i].group_size; j++) {
+            char buffer[256];
+            snprintf(buffer, sizeof(buffer), "%d, %d, %.2f minutes",
+                     groups[i].group_id,
+                     groups[i].members[j].member_id,
+                     groups[i].members[j].interaction_time);
+            drawText(0.2f, y, buffer, GLUT_BITMAP_HELVETICA_18);
+            y -= 0.1f;
+        }
     }
 }
+
+
 
 void drawBlueFile() {
     if (!isBlueFileVisible)
@@ -422,8 +447,8 @@ for (float x = -0.8; x <= 0.8; x += 0.4) {
 
 
     // Render the two tables
-    renderPlayerTable();
-    renderTeamTable();
+    // renderPlayerTable();
+    // renderTeamTable();
 
     glutSwapBuffers();
 }
