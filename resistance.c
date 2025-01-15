@@ -11,9 +11,9 @@
 pthread_mutex_t queue_mutexes[MAX_MEMBERS_define];
 MessageCitToRes queues[MAX_GROUPS_define];
 
-void handle_signal(int sig, siginfo_t *si, void *uc)
+void kill_processes(ResistanceGroup *current_group)
 {
-    ResistanceGroup *current_group = (ResistanceGroup *)si->si_value.sival_ptr;
+    printf("\n\n Killing processes in group ..\n", current_group->group_id);
 
     for (int i = 0; i < current_group->group_size; i++)
     {
@@ -32,27 +32,27 @@ void handle_signal(int sig, siginfo_t *si, void *uc)
             target->injury_status = LIGHT_INJURY;
             target->active = 0;
             pthread_mutex_unlock(&target->lock);
-            sleep(20);
+            printf("Member %d sustained a light injury.\n", target->member_id);
+            sleep(20); // Recovery time
             target->injury_status = 0;
             target->active = 1;
             break;
-
         case SEVERE_INJURY:
             target->injury_status = SEVERE_INJURY;
             target->active = 0;
             pthread_mutex_unlock(&target->lock);
+            printf("Member %d sustained a severe injury and is inactive.\n", target->member_id);
             break;
-
         case MEMBER_CAUGHT:
             target->active = 0;
             pthread_mutex_unlock(&target->lock);
+            printf("Member %d was caught!\n", target->member_id);
             break;
-
         case KILLED:
             target->active = 0;
             pthread_mutex_unlock(&target->lock);
+            printf("Member %d was killed.\n", target->member_id);
             break;
-
         default:
             pthread_mutex_unlock(&target->lock);
             break;
@@ -63,17 +63,21 @@ void handle_signal(int sig, siginfo_t *si, void *uc)
             pthread_mutex_lock(&current_group->members[j].lock);
             if (!current_group->members[j].active)
             {
-                printf("New member joins as replacement for member %d.\n", target->member_id);
                 current_group->members[j].member_id = target->member_id;
                 current_group->members[j].injury_status = 0;
                 current_group->members[j].active = 1;
                 pthread_mutex_unlock(&current_group->members[j].lock);
+                printf("New member replaced the inactive member %d.\n", target->member_id);
                 break;
             }
             pthread_mutex_unlock(&current_group->members[j].lock);
         }
-    }
+    updateTablesDataFile(); // Keep file updated
+    } 
+   printf("\n");
+
 }
+
 
 void *group_member_function(void *arg)
 {
@@ -83,11 +87,9 @@ void *group_member_function(void *arg)
         perror("msgget failed");
         return NULL;
     }
-
     MemberInfo *member = (MemberInfo *)arg;
     int member_id = member->member_id;
     SharedMessage message;
-
     while (1)
     {
         pthread_mutex_lock(&queue_mutexes[member_id]);
@@ -98,20 +100,19 @@ void *group_member_function(void *arg)
             message.time_to_intercat = queues[member_id].time_to_intercat;
             message.group_num = queues[member_id].id_group;
             message.id_cit = queues[member_id].id_cit;
-            ssize_t bytes_written = msgsnd(agency_msgid, &queues[member_id], sizeof(MessageCitToRes) - sizeof(long), 0);
-            if (bytes_written == -1)
+            if (msgsnd(agency_msgid, &queues[member_id], sizeof(MessageCitToRes) - sizeof(long), 0) != -1)
             {
-                perror("Message send failed");
+                printf("Member %d meet : Citizen %d -> Group %d, Interaction Time: %d\n", member_id, message.id_cit, message.group_num, message.time_to_intercat);
             }
             else
             {
-                // printf("Agency: Group member %d sent message: Interaction time = %d, Group = %d, City ID = %d\n",
-                    //   member_id, message.time_to_intercat, message.group_num, message.id_cit);
+                perror("msgsnd failed");
             }
             queues[member_id].id_res = 0;
         }
         pthread_mutex_unlock(&queue_mutexes[member_id]);
         sleep(1);
+        updateTablesDataFile(); // Keep file updated
     }
     return NULL;
 }
@@ -130,25 +131,39 @@ void *spy_function(void *arg)
             msg.id_res = spy->spy_id;
             msg.time_to_intercat = rand() % 10 + 1;
             msg.id_group = spy->group_number;
-            //msg.pid_group=getpid();
-           // ssize_t bytes_written = write(pipes[spy->enemy_id][1], &msg, sizeof(MessageCitToRes));
-            // if (bytes_written == -1)
-            // {
-            //     perror("Spy message send failed");
-            // }
+            msg.pid_group = getpid();
+
+            ssize_t bytes_written = write(pipes[spy->enemy_id][1], &msg, sizeof(MessageCitToRes));
+            if (bytes_written == -1)
+            {
+                perror("Spy message send failed");
+            }
+            else
+            {
+                printf("Spy ID: %d sent a message -> Group ID: %d, Interaction Time: %d, PID: %d\n",
+                       msg.id_res, msg.id_group, msg.time_to_intercat, msg.pid_group);
+            }
         }
+    }
+}
+
+void send_group_number(int group_num)
+{
+    if (write(pipe_fd[1], &group_num, sizeof(group_num)) == -1)
+    {
+        perror("Failed to write to pipe");
     }
 }
 
 void group_process(ResistanceGroup *group)
 {
+
     pthread_t *threads = malloc(group->group_size * sizeof(pthread_t));
     if (threads == NULL)
     {
         perror("Memory allocation failed");
         return;
     }
-
     Spy spy_data = {0};
     int spy_index = rand() % group->group_size;
 
@@ -173,12 +188,8 @@ void group_process(ResistanceGroup *group)
             pthread_create(&threads[i], NULL, group_member_function, &group->members[i]);
         }
     }
-
-    struct sigaction sa;
-    sa.sa_sigaction = handle_signal; // Your signal handler function
-    sa.sa_flags = SA_SIGINFO;        // Ensure the handler gets siginfo (info about the signal)
-    sigaction(SIGUSR1, &sa, NULL);   // Register the handler for SIGUSR1
-
+    int iteration_counter = 0;
+    int numtoiter = rand() % 3 + 4;
     while (1)
     {
         MessageCitToRes message;
@@ -192,17 +203,20 @@ void group_process(ResistanceGroup *group)
                 queues[message.id_res] = message;
                 pthread_mutex_unlock(&queue_mutexes[message.id_res]);
             }
-            else
-            {
-                printf("Invalid ID.\n");
-            }
         }
         else
         {
             sleep(1);
         }
+        iteration_counter++;
+        if (numtoiter == iteration_counter)
+        {
+            kill_processes(group);
+            numtoiter = rand() % 3 + 4;
+        }
     }
     free(threads);
+    updateTablesDataFile(); // Keep file updated
 }
 
 void create_group()
@@ -219,9 +233,12 @@ void create_group()
         }
         else if (pid == 0)
         {
+
             int group_size = MIN_MEMBERS + (rand() % (MAX_MEMBERS - MIN_MEMBERS + 1));
             GroupType group_type = (rand() % 2 == 0) ? SOCIAL : MILITARY;
             float spy_target_probability = (group_type == MILITARY) ? SPY_TARGET_PROBABILITY : 0.3;
+            printf("Creating Group ID: %d | Type: %s | Size: %d | Spy Target Probability: %.2f\n",groups_created,(group_type == SOCIAL) ? "Social" : "Military",group_size, spy_target_probability);
+
             ResistanceGroup group = {
                 .group_id = groups_created,
                 .group_size = group_size,
@@ -235,14 +252,8 @@ void create_group()
         else
         {
             group_pids[groups_created] = pid;
-            printf("  the pid_=%d",pid);
             groups_created++;
         }
     }
-    else
-    {
-        printf("Maximum number of groups reached, cannot create more.\n");
-    }
-
     pthread_mutex_unlock(&groups_mutex[0]);
 }

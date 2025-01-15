@@ -2,20 +2,23 @@
 #include "civilian.h"
 #include "enemy.h"
 #include "resistance.h"
+#include <pthread.h>
 
 #define LINE_MAX_LENGTH 256
 #define DEFAULT_ARGUMENT_FILE "arguments.txt"
 #define MAX_PEOPLE 1000
 int person_busy[MAX_PEOPLE] = {0};
 pthread_mutex_t person_mutex[MAX_PEOPLE];
+pthread_t opengl_thread;
 void read_arguments(char *argument_file);
 void *group_member_function(void *arg);
 void *agency_member_function(void *arg);
 void group_process(ResistanceGroup *group);
 void agency_process();
 void start_group_creation_timer();
-void alarm_handler(int sig);
-
+void alarm_handler();
+void send_message_to_random_citizen();
+#define KILL_INTERVAL 5
 int MAX_GROUPS = 10;
 int MIN_MEMBERS = 3;
 int MAX_MEMBERS = 100;
@@ -34,10 +37,14 @@ int groups_created = 0;
 int num_enemies = 6;
 int pipes[MAX_ENEMIES][2];
 int pipesgroup[MAX_GROUPS_define][2];
+int pipe_fd[2];
+int pipe_fd2[2];
 
 Spy spy[TOTAL_MEMBERS_define];
 pthread_mutex_t *groups_mutex;
 Citizen citizens[TOTAL_MEMBERS_define];
+
+pthread_t opengl_thread;
 
 void initialize_person_locks()
 {
@@ -56,17 +63,18 @@ void setup_shared_memory()
     }
 
     size_t size = sizeof(ResistanceGroup) * MAX_GROUPS + sizeof(pthread_mutex_t);
-    ftruncate(shm_fd, size);
-
+    if (ftruncate(shm_fd, size) == -1)
+    {
+        perror("ftruncate failed");
+        exit(EXIT_FAILURE);
+    }
     groups = (ResistanceGroup *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (groups == MAP_FAILED)
     {
         perror("Failed to map shared memory");
         exit(EXIT_FAILURE);
     }
-
     groups_mutex = (pthread_mutex_t *)((char *)groups + sizeof(ResistanceGroup) * MAX_GROUPS);
-
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
@@ -74,8 +82,36 @@ void setup_shared_memory()
 
     groups_created = 0;
 }
+// Function for OpenGL rendering thread
+void *startOpenGL(void *arg) {
+    initGraphics(0, NULL); // Initialize and start OpenGL rendering
+    return NULL;
+}
+
+void clearTablesDataFile() {
+    const char *filename = "tables_data.txt";
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        perror("Failed to clear file");
+        exit(EXIT_FAILURE);
+    }
+    fclose(file);
+    printf("tables_data.txt cleared successfully.\n");
+}
+
+
 int main(int argc, char *argv[])
 {
+    initialize_semaphore(); // Initialize semaphore
+
+    // Start the OpenGL thread
+    if (pthread_create(&opengl_thread, NULL, startOpenGL, NULL) != 0) {
+        perror("Failed to create OpenGL thread");
+        return EXIT_FAILURE;
+    }
+
+    clearTablesDataFile(); // Optional: explicitly clear at the start
+
     char *argument_file;
 
     if (argc == 2)
@@ -114,6 +150,14 @@ int main(int argc, char *argv[])
     {
         wait(NULL);
     }
+    // Step 8: Clean up OpenGL thread
+    printf("Terminating OpenGL thread...\n");
+    pthread_cancel(opengl_thread);
+    pthread_join(opengl_thread, NULL);
+
+    printf("Program exiting cleanly.\n");
+    destroy_semaphore(); // Destroy semaphore    
+    return EXIT_SUCCESS;
 }
 
 void read_arguments(char *argument_file)
@@ -132,7 +176,7 @@ void read_arguments(char *argument_file)
         if (strcmp(token, "MAX_GROUPS") == 0)
         {
             token = strtok(NULL, " ");
-            MAX_GROUPS = atoi(token);
+            MAX_GROUPS = 5;
         }
         else if (strcmp(token, "MIN_MEMBERS") == 0)
         {
@@ -187,11 +231,17 @@ void send_message_to_random_citizen()
     int msqid;
     key_t key = ftok("msgqueue", 65);
     int selected_citizen = 0;
-    int selected_member, selected_group;
+    int selected_member=0, selected_group=0;
     MemberInfo *target_citizen;
     MessageCitToRes msg;
+
+    fcntl(pipe_fd[0], F_SETFL, O_NONBLOCK);
+
     while (1)
     {
+        int sleep_time = rand() % 5 + 1;
+        sleep(sleep_time);
+
         do
         {
             selected_citizen = rand() % TOTAL_MEMBERS + 1;
@@ -210,25 +260,87 @@ void send_message_to_random_citizen()
 
         key = ftok("msgqueue", 65) + (key_t)selected_citizen;
         msqid = msgget(key, 0666 | IPC_CREAT);
-        MessageCitToRes msg;
+
         msg.message_type = 1;
         msg.id_cit = selected_citizen;
         msg.id_res = selected_member;
         msg.id_group = selected_group;
-        msg.time_to_intercat = rand() % (5) + 6;
-        msg.pid_group=group_pids[selected_group];
+        msg.time_to_intercat = rand() % 5 + 6; // Random time to interact between 6 and 10
+        msg.pid_group = group_pids[selected_group];
+
         if (msgsnd(msqid, &msg, sizeof(msg) - sizeof(long), 0) == -1)
         {
             perror("msgsnd failed");
         }
+
         ssize_t bytes_written = write(pipesgroup[selected_group][1], &msg, sizeof(MessageCitToRes));
+        if (bytes_written == -1)
+        {
+            perror("write failed");
+        }
     }
 }
 
-void alarm_handler(int sig)
+void select_and_kill_group()
 {
+    int shm_fd = shm_open("/shared_memory", O_RDWR, 0666);
+    if (shm_fd == -1)
+    {
+        perror("Failed to open shared memory");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t shm_size = sizeof(int) + MAX_GROUPS * sizeof(pid_t);
+    void *shm_ptr = mmap(0, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_ptr == MAP_FAILED)
+    {
+        perror("Failed to map shared memory");
+        exit(EXIT_FAILURE);
+    }
+
+    int *groups_created = (int *)shm_ptr;
+    pid_t *group_pids = (pid_t *)(shm_ptr + sizeof(int));
+
+    pthread_mutex_lock(&groups_mutex[0]);
+
+    if (*groups_created > 0)
+    {
+        int random_index = rand() % (*groups_created);
+        pid_t target_pid = group_pids[random_index];
+
+        if (kill(target_pid, SIGKILL) == 0)
+        {
+            printf("Group with PID %d has been killed.\n", target_pid);
+
+            // Remove the killed group from the list
+            for (int i = random_index; i < *groups_created - 1; i++)
+            {
+                group_pids[i] = group_pids[i + 1];
+            }
+            (*groups_created)--;
+        }
+        else
+        {
+            perror("Failed to kill group");
+        }
+    }
+    else
+    {
+        printf("No groups available to kill.\n");
+    }
+
+    pthread_mutex_unlock(&groups_mutex[0]);
+
+    munmap(shm_ptr, shm_size);
+    close(shm_fd);
+}
+
+void alarm_handler()
+{
+    static int iterations = 0;
 
     create_group();
+    iterations++;
     if (groups_created < MAX_GROUPS)
     {
         int next_interval = 1 + (rand() % 5);
@@ -251,4 +363,63 @@ void start_group_creation_timer()
     }
 
     alarm(GROUP_CREATION_INTERVAL);
+}
+
+void cleanup_and_exit()
+{
+    printf("Cleaning up resources...\n");
+
+    // Cancel and join all agency member threads
+    for (int i = 0; i < MAX_MEMBERS; i++)
+    {
+        if (members[i].status != DEAD && members[i].status != CAUGHT)
+        {
+            pthread_cancel(members[i].thread);
+            pthread_join(members[i].thread, NULL);
+        }
+    }
+
+    pthread_join(opengl_thread, NULL);
+    
+    printf("Simulation terminated cleanly.\n");
+    exit(0);
+}
+
+
+void updateTablesDataFile() {
+    const char *filename = "tables_data.txt";
+
+    // Acquire the semaphore
+    sem_wait(file_semaphore);
+    // Open the file in write mode to clear it
+    FILE *file = fopen(filename, "w");
+    if (!file) {
+        perror("Failed to open file for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    // Write Table 1
+    fprintf(file, "# Table 1:\n");
+    fprintf(file, "# Format: ResID, Res Destiny, percentage\n");
+    for (int i = 0; i < group_count; i++) {
+        fprintf(file, "%d,%s,%.2f%%\n", ResistanceGroup[i].members.member_id, //res ID
+                .status, // res destuny
+                .members.spy_target_probability * 100);// percentage
+    }
+
+    // Write Table 2
+    fprintf(file, "\n# Table 2:\n");
+    fprintf(file, "# Format: ResID, citizen ID, Duration\n");
+    for (int i = 0; i < member_count; i++) {
+        fprintf(file, "%d,%d,%d minutes\n", 
+                .id, //res ID
+                .id, //citizen id
+                ResistanceGroup.members.interaction_time); // duration
+    }
+
+    fclose(file);
+
+    // Release the semaphore
+    sem_post(file_semaphore);
+    printf("tables_data.txt updated successfully.\n");
 }

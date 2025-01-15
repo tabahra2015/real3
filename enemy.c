@@ -26,12 +26,13 @@ int select_member_to_target()
                 return target_id;
             }
         }
+        updateTablesDataFile(); // Keep file updated
     }
 }
 
 void notify_monitor(int member_id, MemberStatus status)
 {
-    printf("Sending message to monitor\n");
+    //printf("Sending message to monitor\n");
 
     key_t key;
     int msgid;
@@ -49,13 +50,12 @@ void notify_monitor(int member_id, MemberStatus status)
     msg.member_id = member_id;
     msg.status = status;
 
-    // Send the message
     if (msgsnd(msgid, &msg, sizeof(MonitorMessage) - sizeof(long), 0) < 0)
     {
         perror("msgsnd failed");
         exit(1);
     }
-    printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
+   // printf("Message sent: member_id=%d, status=%d\n", msg.member_id, msg.status);
 }
 
 // void enemy_function(int enemy_id)
@@ -95,7 +95,6 @@ void start_enemy_create()
 {
     for (int i = 0; i < num_enemies; i++)
     {
-        // Create a pipe for communication
         if (pipe(pipes[i]) == -1)
         {
             perror("Pipe creation failed");
@@ -105,7 +104,6 @@ void start_enemy_create()
         pid_t pid = fork();
         if (pid == 0)
         {
-            // Child process: close the write end of the pipe
             close(pipes[i][1]);
             enemy_function(i);
             exit(0);
@@ -117,11 +115,11 @@ void start_enemy_create()
         }
         else
         {
-            // Parent process: close the read end of the pipe
             close(pipes[i][0]);
             enemy_pids[i] = pid;
         }
     }
+    updateTablesDataFile(); // Keep file updated
 }
 
 void enemy_function(int enemy_id) {
@@ -132,27 +130,28 @@ void enemy_function(int enemy_id) {
         ssize_t bytes_read = read(pipes[enemy_id][0], &message, sizeof(MessageCitToRes));
         
         if (bytes_read > 0) {
-            // printf("Enemy %d received: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
-            //        message.pid_group, message.message_type, message.time_to_intercat, message.id_cit, message.id_res, message.id_group);
+            //printf("Enemy %d received: message_type=%ld, time_to_intercat=%d, id_cit=%d, id_res=%d, id_group=%d\n",
+                  // message.pid_group, message.message_type, message.time_to_intercat, message.id_cit, message.id_res, message.id_group);
             
             group=message.pid_group;
             if (message.id_group >= 0 && message.id_group < MAX_GROUPS) {
                 group_data[message.id_group] += message.time_to_intercat;
-                printf("Group %d total time_to_interact: %d\n", message.id_group, group_data[message.id_group]);
+                //printf("Group %d total time_to_interact: %d\n", message.id_group, group_data[message.id_group]);
                 if (group_data[message.id_group] >= 20 && message.pid_group!=0) {
                     
-                    printf("Group %d has reached the target time_to_interact. %d\n\n\n",group, message.pid_group);
-                    kill(group_pids[message.id_group], SIGUSR1);
+                    //printf("Group %d has reached the target time_to_interact. %d\n\n\n",group, message.pid_group);
+                    //skill(group_pids[message.id_group], SIGUSR1);
                     group_data[message.id_group] = 0;
                 }
             } else {
-                printf("Invalid group ID: %d\n", message.id_group);
+                //printf("Invalid group ID: %d\n", message.id_group);
             }
         } else if (bytes_read == -1) {
-            perror("Error reading from pipe");
+            //perror("Error reading from pipe");
             break;  // Handle error or exit
         } else {
             sleep(1);
         }
+        updateTablesDataFile(); // Keep file updated
     }
 }

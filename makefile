@@ -5,8 +5,8 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 
 # Define the source files and the target executable
-SRC = parent.c resistance.c civilian.c agency.c enemy.c
-OBJ = parent.o resistance.o civilian.o agency.o enemy.o
+SRC = parent.c resistance.c civilian.c agency.c enemy.c arms.c
+OBJ = parent.o resistance.o civilian.o agency.o enemy.o arms.o
 TARGET = program
 
 # Default target to compile the program
@@ -32,6 +32,8 @@ agency.o: agency.c agency.h
 enemy.o: enemy.c enemy.h
 	$(CC) $(CFLAGS) -c enemy.c
 
+arms.o: arms.c 
+	$(CC) $(CFLAGS) -c arms.c
 # Run the program
 run: $(TARGET)
 	./$(TARGET)
